@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Variables CSS globales ──────────────────────────── */
+:root {
+  --color-player:  #2563eb;
+  --color-empire1: #dc2626;
+  --color-empire2: #16a34a;
+  --color-empire3: #9333ea;
+  --color-empire4: #ea580c;
+  --color-surface: #f8f7f2;
+  --color-primary: #1e3a5f;
+  --color-accent:  #e07b1a;
+}
+
+/* ── Base ────────────────────────────────────────────── */
+body {
+  @apply bg-stone-50 text-stone-800 font-ui;
+  min-height: 100vh;
+}
+
+/* ── Dés — animation de lancer ───────────────────────── */
+@keyframes dice-roll {
+  0%   { transform: rotate(0deg)   scale(1); }
+  20%  { transform: rotate(120deg) scale(1.1); }
+  40%  { transform: rotate(240deg) scale(0.95); }
+  60%  { transform: rotate(330deg) scale(1.05); }
+  80%  { transform: rotate(355deg) scale(1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.dice-rolling {
+  animation: dice-roll 0.8s ease-out forwards;
+}
+
+@keyframes dice-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+.dice-selected {
+  animation: dice-bounce 0.3s ease-in-out;
+  @apply ring-2 ring-accent ring-offset-1;
+}
+
+/* ── Événement — flash d'alerte ──────────────────────── */
+@keyframes event-flash {
+  0%, 100% { background-color: transparent; }
+  50%       { background-color: #fef3c7; }
+}
+
+.event-triggered {
+  animation: event-flash 0.6s ease-in-out 2;
+}
+
+/* ── Cases de la carte ───────────────────────────────── */
+.tile-unexplored {
+  @apply bg-stone-200 border border-stone-300;
+}
+.tile-explored {
+  @apply border border-stone-400;
+}
+.tile-player {
+  @apply border-2 border-blue-500;
+}
+.tile-empire-1 { @apply border-2 border-red-500; }
+.tile-empire-2 { @apply border-2 border-green-600; }
+.tile-empire-3 { @apply border-2 border-purple-600; }
+.tile-empire-4 { @apply border-2 border-orange-500; }
+
+/* ── Scrollbar discrète ──────────────────────────────── */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
