@@ -36,7 +36,7 @@ export const useLogStore = create((set, get) => ({
         text,
         time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
       }
-      const newEntries = [entry, ...state.entries].slice(0, MAX_ENTRIES)
+      const newEntries = [...state.entries, entry].slice(-MAX_ENTRIES)  // chronologique, plus récent en bas
       saveLog(newEntries)
       return { entries: newEntries }
     })

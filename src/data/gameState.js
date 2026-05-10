@@ -99,7 +99,15 @@ export function createInitialGameState() {
       pdmCorpsActive:       false, // 3 dés au lieu de 4
       pdmGaucheActive:      false, // gibier → nobles
       pdmDroiteActive:      false, // +1 noble/tour
+      armerActif:           false, // -1 perte au prochain combat
+      servageActif:         false, // 3 dés au lieu de 2 au prochain lancer
+      equiperActif:         false, // mode +/- sur les dés actif
     },
+
+    // ── Piste des événements ──────────────────────────────────
+    eventIndex: 0,         // index sur la piste des 35 événements
+    configD40: null,       // généré au setup (array de 40 entrées)
+    nextTurnEffects: {},   // effets différés au prochain tour
 
     // ── Limites d'actions spéciales (reset chaque tour) ───────
     turnLimits: {

@@ -1,124 +1,50 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useGameStore } from '../../store/gameStore.js'
 import { useLogStore } from '../../store/logStore.js'
 import { GameMap } from '../Map/GameMap.jsx'
 import { ResourceBar } from './ResourceBar.jsx'
 import { PopulationPanel } from './PopulationPanel.jsx'
 import { RightPanel } from './RightPanel.jsx'
+import { DiceZone } from '../Dice/DiceZone.jsx'
+import { ActionPanel } from '../Actions/ActionPanel.jsx'
+import { ActionsSpecialesPanel } from '../Actions/ActionsSpecialesPanel.jsx'
+import { FaminePopup } from '../Actions/FaminePopup.jsx'
+import { getCasesExplorables } from '../../engine/exploration.js'
+import { EffetsActifs } from '../UI/EffetsActifs.jsx'
+import { TourEmpiresPanel } from '../Empire/TourEmpiresPanel.jsx'
+import { EvenementsPanel } from '../Empire/EvenementsPanel.jsx'
+import { resoudreSurpopulation, appliquerFamine, calcStorageMax } from '../../engine/population.js'
 
-// ── Topbar ────────────────────────────────────────────────────
-function TopBar({ onRules, onJournal }) {
+function TopBar({ onRules, onJournal, onEvenements }) {
   const game = useGameStore(s => s.game)
-  const BTN = {
-    display:'inline-flex', alignItems:'center', gap:5,
-    background:'rgba(255,255,255,.18)', border:'1.5px solid rgba(255,255,255,.5)',
-    color:'#ffffff', padding:'5px 13px', borderRadius:7,
-    fontSize:12, fontWeight:500, cursor:'pointer',
-  }
+  const BTN = { display:'inline-flex', alignItems:'center', gap:5, background:'rgba(255,255,255,.18)', border:'1.5px solid rgba(255,255,255,.5)', color:'#fff', padding:'5px 13px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer' }
   return (
     <div style={{ background:'#1e3a5f', padding:'7px 14px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexShrink:0 }}>
-      <span style={{ fontWeight:500, fontSize:15, letterSpacing:'.05em', color:'#ffffff' }}>4X Lite</span>
+      <span style={{ fontWeight:500, fontSize:15, letterSpacing:'.05em', color:'#fff' }}>4X Lite</span>
       <div style={{ display:'flex', gap:7, alignItems:'center' }}>
-        <span style={{ fontSize:12, background:'rgba(255,255,255,.15)', border:'1px solid rgba(255,255,255,.3)', padding:'3px 10px', borderRadius:10, color:'#ffffff' }}>
-          Tour {game?.turn ?? 0}
-        </span>
+        <span style={{ fontSize:12, background:'rgba(255,255,255,.15)', border:'1px solid rgba(255,255,255,.3)', padding:'3px 10px', borderRadius:10, color:'#fff' }}>Tour {game?.turn ?? 0}</span>
         <button onClick={onRules}   style={BTN}>📖 Règles</button>
-        <button onClick={onJournal} style={BTN}>📜 Journal</button>
+        <button onClick={onJournal}    style={BTN}>📜 Journal</button>
+        <button onClick={onEvenements} style={BTN}>📋 Événements</button>
       </div>
     </div>
   )
 }
 
-// ── Zone dés ─────────────────────────────────────────────────
-function ActionZone() {
-  const [diceValues, setDiceValues] = useState([])
-  const [rolled, setRolled]         = useState(false)
-  const [selected, setSelected]     = useState([])
-
-  const DIE_ACTIONS = {
-    1:'Récolter', 2:'Récolter', 3:'Construire',
-    4:'Explorer / Coloniser / Attaquer', 5:'Étudier', 6:'Grandir',
-  }
-
-  function roll() {
-    setDiceValues(Array.from({ length:4 }, ()=>Math.floor(Math.random()*6)+1))
-    setRolled(true); setSelected([])
-  }
-  function toggleDie(i) {
-    if (!rolled) return
-    if (selected.includes(i)) setSelected(selected.filter(x=>x!==i))
-    else if (selected.length < 2) setSelected([...selected,i])
-  }
-  function endTurn() { setRolled(false); setDiceValues([]); setSelected([]) }
-
-  return (
-    <div style={{ background:'white', borderTop:'0.5px solid #e2e8f0', padding:'10px 14px', flexShrink:0 }}>
-      {!rolled ? (
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <span style={{ fontSize:13, color:'#64748b', fontWeight:500 }}>Tour en attente</span>
-          <button onClick={roll} style={{ background:'#e07b1a', color:'white', border:'none', padding:'8px 20px', borderRadius:8, fontSize:13, fontWeight:500, cursor:'pointer' }}>
-            🎲 Lancer les dés
-          </button>
-        </div>
-      ) : (
-        <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
-          <span style={{ fontSize:12, fontWeight:500, color:selected.length<2?'#f59e0b':'#16a34a', minWidth:100, flexShrink:0 }}>
-            {selected.length<2 ? `Choisissez ${2-selected.length} dé${2-selected.length>1?'s':''}` : '✓ Dés choisis'}
-          </span>
-          <div style={{ display:'flex', gap:6 }}>
-            {diceValues.map((val,i) => {
-              const isSel=selected.includes(i), isDimmed=!isSel&&selected.length>=2
-              return (
-                <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
-                  <button onClick={()=>toggleDie(i)} style={{
-                    width:40, height:40, borderRadius:9,
-                    border:isSel?'2px solid #e07b1a':'1.5px solid #cbd5e1',
-                    background:isSel?'#fff7ed':'white', color:isSel?'#e07b1a':'#1e293b',
-                    fontSize:18, fontWeight:600, cursor:'pointer',
-                    opacity:isDimmed?0.3:1, transition:'all .15s',
-                    transform:isSel?'scale(1.08)':'scale(1)',
-                  }}>{val}</button>
-                  <span style={{ fontSize:9, color:isSel?'#e07b1a':'#94a3b8', textAlign:'center', maxWidth:44, lineHeight:1.2, fontWeight:isSel?500:400 }}>
-                    {DIE_ACTIONS[val]}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          {selected.length > 0 && (
-            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-              <span style={{ fontSize:11, color:'#94a3b8' }}>→</span>
-              {selected.map(i => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:5, background:'#eff6ff', border:'1.5px solid #2563eb', borderRadius:7, padding:'5px 10px' }}>
-                  <div style={{ width:22, height:22, borderRadius:5, background:'#2563eb', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:500 }}>
-                    {diceValues[i]}
-                  </div>
-                  <span style={{ fontSize:11, fontWeight:500, color:'#1d4ed8', whiteSpace:'nowrap' }}>{DIE_ACTIONS[diceValues[i]]}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {selected.length === 2 && (
-            <button onClick={endTurn} style={{ marginLeft:'auto', background:'#1e3a5f', color:'white', border:'none', padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer' }}>
-              Fin du tour →
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Journal ───────────────────────────────────────────────────
+// Journal extrait en composant React propre (hooks autorisés)
 function JournalPanel({ onClose }) {
   const entries = useLogStore(s => s.entries)
+  const listRef = useRef(null)
+  useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
+  }, [entries])
   return (
     <div style={{ position:'fixed', right:16, bottom:80, width:300, background:'white', borderRadius:12, border:'0.5px solid #e2e8f0', boxShadow:'0 4px 24px rgba(0,0,0,.12)', zIndex:200 }}>
       <div style={{ padding:'10px 14px', borderBottom:'0.5px solid #e2e8f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontWeight:500, fontSize:14 }}>📜 Journal de partie</span>
+        <span style={{ fontWeight:500, fontSize:14 }}>📜 Journal</span>
         <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:18 }}>✕</button>
       </div>
-      <div style={{ padding:'8px 14px', maxHeight:280, overflowY:'auto', display:'flex', flexDirection:'column', gap:6 }}>
+      <div ref={listRef} style={{ padding:'8px 14px', maxHeight:280, overflowY:'auto', display:'flex', flexDirection:'column', gap:6 }}>
         {entries.length === 0
           ? <p style={{ fontSize:13, color:'#94a3b8' }}>Aucune action enregistrée.</p>
           : entries.map(e => (
@@ -132,39 +58,182 @@ function JournalPanel({ onClose }) {
   )
 }
 
-// ── Écran de jeu ──────────────────────────────────────────────
 export function GameScreen() {
-  const game        = useGameStore(s => s.game)
-  const [showJournal, setShowJournal] = useState(false)
+  const game       = useGameStore(s => s.game)
+  const updateGame = useGameStore(s => s.updateGame)
+  const addEntry   = useLogStore(s => s.addEntry)
+
+  const [showJournal,    setShowJournal]    = useState(false)
+  const [showEmpires,    setShowEmpires]    = useState(false)
+  const [showEvenements, setShowEvenements] = useState(false)
+  const [showSpeciales,  setShowSpeciales]  = useState(false)
+  const [famineData,     setFamineData]     = useState(null)
+  const [equiperMode,    setEquiperMode]    = useState(false)
+  const [highlightTiles, setHighlight]      = useState([])
+
+  const [confirmedActions, setConfirmedActions] = useState([])
+  const [usedActions,      setUsedActions]       = useState([])
+  const [activeActionIdx,  setActiveActionIdx]   = useState(null)
+  const [mapTileClicked,   setMapTileClicked]    = useState(null)
+  const [diceRolled,       setDiceRolled]        = useState(false)
+  const [diceValues,       setDiceValues]        = useState([])
+  const [dicePhase,        setDicePhase]         = useState('idle')
 
   if (!game) return null
 
+  const currentAction = activeActionIdx !== null ? confirmedActions[activeActionIdx] : null
+  const mapClickMode  = currentAction !== null
+
+  function handleMapTileClick(tile) {
+    if (mapClickMode) setMapTileClicked(tile)
+  }
+
+  function handleActionClick({ action, idx }) {
+    setActiveActionIdx(idx)
+    if (action.value === 3) {
+      const constructibles = game.map.flat().filter(t => t.owner==='player' && t.explored && t.terrain!=='lac' && !t.isLac)
+      setHighlight(constructibles.map(t => ({ row:t.row, col:t.col })))
+    }
+  }
+
+  function closeAction() {
+    // Fermer sans griser — ne pas appeler markUsed
+    setActiveActionIdx(null)
+    setHighlight([])
+    setMapTileClicked(null)
+  }
+
+  function markUsed() {
+    if (activeActionIdx !== null) {
+      const idx = activeActionIdx
+      setUsedActions(prev => prev.includes(idx) ? prev : [...prev, idx])
+    }
+    closeAction()
+  }
+
+  function handleDiceRolled() {
+    setDicePhase('rolled')
+    setDiceRolled(true)
+  }
+
+  function handleActionsConfirmed(actions) {
+    setConfirmedActions(actions)
+    setUsedActions([])
+    setActiveActionIdx(null)
+    setDiceValues(actions.map(a => a.value))
+  }
+
+  function handleActionsPhaseStart() {
+    // Appelé quand le joueur confirme ses 2 dés → Équiper n'est plus dispo
+    setDicePhase('acting')
+  }
+
+  function handleTurnEnd() {
+    const { newResources, famineData: fd } = resoudreSurpopulation(game.population, game.resources, game.map)
+    const newStorageMax = calcStorageMax(game.map)
+    if (fd) {
+      updateGame(g => ({ ...g, resources: newResources, storageMax: newStorageMax }))
+      setFamineData(fd)
+    } else {
+      updateGame(g => ({ ...g, resources: newResources, storageMax: newStorageMax }))
+      finirTour()
+    }
+  }
+
+  function handleFamineConfirm(pertes) {
+    updateGame(g => ({ ...g, population: appliquerFamine(g.population, pertes) }))
+    setFamineData(null)
+    finirTour()
+  }
+
+  function finirTour() {
+    // Déclencher le tour des empires
+    setShowEmpires(true)
+    setConfirmedActions([])
+    setUsedActions([])
+    setActiveActionIdx(null)
+    setHighlight([])
+    setMapTileClicked(null)
+    setDiceRolled(false)
+    setDicePhase('idle')
+    setDiceValues([])
+    // Reset turnLimits dans le game store
+    updateGame(g => ({ ...g, turnLimits: { grandir:0, recruter:0, commerce:0, servageUsed:false } }))
+    addEntry(`Fin du tour ${game.turn}`, game.turn)
+  }
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'#f8f7f2', overflow:'hidden' }}>
-      <TopBar
-        onRules={()=>alert('Manuel de règles — Sprint 8')}
-        onJournal={()=>setShowJournal(v=>!v)}
-      />
+      <TopBar onRules={()=>alert('Manuel de règles — Sprint 8')} onJournal={()=>setShowJournal(v=>!v)} onEvenements={() => setShowEvenements(v=>!v)} />
       <ResourceBar onInnovationsClick={()=>alert('Innovations — Sprint 7')} />
 
-      <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
+      <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0, position:'relative' }}>
         <PopulationPanel />
-        <div style={{ flex:1, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', padding:6, minWidth:0 }}>
-          {/*
-            IMPORTANT : on ne passe PAS onTileClick ici.
-            Sans callback externe, le Tile gère lui-même l'affichage
-            des tooltips complets au clic.
-          */}
-          <GameMap
-            map={game.map}
-            empires={game.empires}
-          />
+
+        <div style={{ flex:1, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', padding:6, minWidth:0, position:'relative' }}>
+          <GameMap map={game.map} empires={game.empires} highlightTiles={highlightTiles} onTileClick={mapClickMode ? handleMapTileClick : undefined} />
+          {/* Effets actifs — flottant en bas à gauche de la carte */}
+          <div style={{ position:'absolute', bottom:10, left:10, zIndex:50 }}>
+            <EffetsActifs />
+          </div>
         </div>
+
         <RightPanel />
+
+        {/* Panneau action */}
+        {currentAction && (
+          <div style={{ position:'absolute', right:144, top:'50%', transform:'translateY(-50%)', zIndex:300, boxShadow:'0 4px 20px rgba(0,0,0,.13)', borderRadius:12 }}>
+            <ActionPanel
+              dieValue={currentAction.value}
+              onClose={closeAction}
+              onMarkUsed={markUsed}
+              onTileHighlight={setHighlight}
+              explorerTileClicked={mapTileClicked}   onExplorerTileHandled={() => setMapTileClicked(null)}
+              coloniserTileClicked={mapTileClicked}  onColoniserTileHandled={() => setMapTileClicked(null)}
+              constructTileClicked={mapTileClicked}  onConstructTileHandled={() => setMapTileClicked(null)}
+              attackTileClicked={mapTileClicked}     onAttackTileHandled={() => setMapTileClicked(null)}
+            />
+          </div>
+        )}
+
+        {/* Panneau Spéciales — s'ouvre vers le haut, ancré au bouton dans DiceZone */}
+        {showSpeciales && (
+          <div style={{ position:'fixed', bottom:70, right:16, zIndex:400, boxShadow:'0 -4px 24px rgba(0,0,0,.15)', borderRadius:12, maxHeight:'75vh', overflowY:'auto' }}>
+            <ActionsSpecialesPanel
+              onClose={() => setShowSpeciales(false)}
+              diceRolled={diceRolled}
+              dicePhase={dicePhase}
+              diceValues={diceValues}
+            />
+          </div>
+        )}
       </div>
 
-      <ActionZone />
-      {showJournal && <JournalPanel onClose={()=>setShowJournal(false)} />}
+      {/* Zone basse : DiceZone intègre désormais le bouton Spéciales */}
+      <div style={{ borderTop:'0.5px solid #e2e8f0', flexShrink:0 }}>
+        <DiceZone
+          onTurnEnd={handleTurnEnd}
+          onActionsConfirmed={handleActionsConfirmed}
+          onActionClick={handleActionClick}
+          onActionsPhaseStart={handleActionsPhaseStart}
+          onDiceRolled={handleDiceRolled}
+          confirmedActions={confirmedActions}
+          usedActions={usedActions}
+          externalDiceValues={dicePhase === 'rolled' && diceValues.length > 0 ? diceValues : null}
+          onDiceValuesChange={setDiceValues}
+          showSpeciales={showSpeciales}
+          onToggleSpeciales={() => setShowSpeciales(v => !v)}
+        />
+      </div>
+
+      {famineData && <FaminePopup famineData={famineData} onConfirm={handleFamineConfirm} />}
+      {showJournal    && <JournalPanel     onClose={() => setShowJournal(false)} />}
+      {showEvenements && <EvenementsPanel  onClose={() => setShowEvenements(false)} />}
+      {showEmpires    && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.4)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <TourEmpiresPanel onClose={() => setShowEmpires(false)} />
+        </div>
+      )}
     </div>
   )
 }

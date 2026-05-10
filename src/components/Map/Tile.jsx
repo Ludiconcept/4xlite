@@ -42,12 +42,12 @@ const BUILDING_NAMES = {
   palaismerveilles_droite:'Palais des Merveilles — Aile droite',
 }
 const BUILDING_EFFECTS = {
-  ferme:'Produit 1 Nourriture / tour. +5 capacité population.',
+  ferme:'Produit 1 Nourriture. +3 capacité pop. max. Gratuit en Plaine, coûte 1 Bois/Fer/Argile en Colline.',
   mine:'Chaque ressource Fer/Argile/Or sur la case produit +1.',
   scierie:'Chaque ressource Bois sur la case produit +1.',
   tourDeGuet:'+1 guerrier défensif. -1 perte si victoire en défense.',
   forteresse:'+3 guerriers défensifs. -1 perte si victoire en défense.',
-  palais:'+1 Or toutes les 5 cases contrôlées.',
+  palais:'+5 Or par 5 cases (récolte, arrondi inf.). 1 max. Débloque Servage.',
   marche:'Commerce amélioré : 1 Or = 2 ressources.',
   hopital:'Débloque l\'action Soigner.',
   universite:'Débloque l\'action Former.',

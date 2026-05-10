@@ -10,8 +10,8 @@ const POP_TYPES = [
   { key:'noble',    label:'Noble',    color:'#0369a1', role:'Innovations Guerre & Admin.' },
 ]
 
-const POP_PER_TILE = 10
-const POP_PER_FARM = 5
+const POP_PER_TILE = 5
+const POP_PER_FARM = 3
 
 export function PopulationPanel() {
   const game = useGameStore(s => s.game)

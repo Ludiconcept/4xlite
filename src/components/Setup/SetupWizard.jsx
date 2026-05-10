@@ -1,10 +1,60 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useGameStore } from '../../store/gameStore.js'
 import { useLogStore } from '../../store/logStore.js'
 import { GameMap } from '../Map/GameMap.jsx'
+import { genererConfigD40 } from '../../data/d40Config.js'
 
 function rollDie() { return Math.floor(Math.random() * 6) + 1 }
 function rollDice(n) { return Array.from({ length: n }, rollDie) }
+
+// Bouton de lancer avec animation numérotée
+function RollButton({ onRoll, label = 'Lancer les dés', disabled = false }) {
+  const [anim, setAnim] = React.useState(false)
+  const [vals, setVals] = React.useState([])
+  const n = 4
+
+  async function handleClick() {
+    if (anim || disabled) return
+    setAnim(true)
+    const final = Array.from({ length: n }, rollDie)
+    setVals(Array.from({ length: n }, rollDie))
+    const interval = setInterval(() => setVals(Array.from({ length: n }, rollDie)), 80)
+    await new Promise(r => setTimeout(r, 650))
+    clearInterval(interval)
+    setVals(final)
+    setAnim(false)
+    onRoll(final)
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+      {vals.length > 0 && (
+        <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+          {vals.map((v, i) => (
+            <div key={i} style={{
+              width:40, height:40, borderRadius:9,
+              border: anim ? '1.5px solid #fcd34d' : '1.5px solid #f59e0b',
+              background: anim ? '#fffbeb' : 'white',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:18, fontWeight:700, color: anim ? '#92400e' : '#1e293b',
+              transition:'transform .1s',
+              transform: anim ? 'rotate(' + (Math.random()>0.5?5:-5) + 'deg)' : 'scale(1)',
+            }}>{v}</div>
+          ))}
+        </div>
+      )}
+      <button onClick={handleClick} disabled={anim || disabled} style={{
+        padding:'9px 0', background: anim ? '#e2e8f0' : '#f59e0b',
+        color:'white', border:'none', borderRadius:8, fontWeight:600, fontSize:13,
+        cursor: anim || disabled ? 'default' : 'pointer',
+        display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+      }}>
+        <span>{anim ? '🎲 En cours…' : '🎲 ' + label}</span>
+      </button>
+    </div>
+  )
+}
+
 
 // ── Tables ────────────────────────────────────────────────────
 const TERRAIN_FROM_DIE = { 1:'marais', 2:'plaine', 3:'desert', 4:'colline', 5:'montagne' }
@@ -318,7 +368,8 @@ export function SetupWizard() {
   }
 
   function startGame() {
-    updateGame(g => ({ ...g, phase:'playing', turn:1 }))
+    const configD40 = genererConfigD40()
+    updateGame(g => ({ ...g, phase:'playing', turn:1, configD40, eventIndex:0 }))
     addEntry('La partie commence !', 0)
   }
 
@@ -374,7 +425,7 @@ export function SetupWizard() {
             <h2 style={{ fontWeight:600, color:'#1e293b', fontSize:16 }}>Terrains de départ</h2>
             <p style={{ fontSize:13, color:'#475569', lineHeight:1.6 }}>Lancez les dés. Sélectionnez un dé puis <strong>cliquez directement sur la case</strong> sur la carte.</p>
             {!t2Rolled
-              ? <button onClick={()=>{setT2Dice(rollDice(4));setT2Rolled(true)}} style={{ padding:'10px 0', background:'#f59e0b', color:'white', border:'none', borderRadius:8, fontWeight:600, fontSize:14, cursor:'pointer' }}>🎲 Lancer les 4 dés</button>
+              ? <RollButton label="Lancer les 4 dés" onRoll={(vals) => { setT2Dice(vals); setT2Rolled(true) }} />
               : <>
                   <div style={{ fontSize:11, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'.06em' }}>
                     {t2SelDie!==null ? `✦ Dé ${t2Dice[t2SelDie]} sélectionné — cliquez une case sur la carte` : 'Cliquez un dé pour le sélectionner'}
@@ -423,7 +474,7 @@ export function SetupWizard() {
             <h2 style={{ fontWeight:600, color:'#1e293b', fontSize:16 }}>Curiosités géographiques</h2>
             <p style={{ fontSize:13, color:'#475569', lineHeight:1.6 }}>Lancez les dés et choisissez 2 curiosités.</p>
             {!t3Rolled
-              ? <button onClick={()=>{setT3Dice(rollDice(4));setT3Rolled(true);setT3Sel([])}} style={{ padding:'10px 0', background:'#f59e0b', color:'white', border:'none', borderRadius:8, fontWeight:600, fontSize:14, cursor:'pointer' }}>🎲 Lancer les 4 dés</button>
+              ? <RollButton label="Lancer les 4 dés" onRoll={(vals) => { setT3Dice(vals); setT3Rolled(true); setT3Sel([]) }} />
               : <>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                     {t3Dice.map((val,i) => {
@@ -471,7 +522,7 @@ export function SetupWizard() {
             <h2 style={{ fontWeight:600, color:'#1e293b', fontSize:16 }}>Ressources initiales</h2>
             <p style={{ fontSize:13, color:'#475569', lineHeight:1.6 }}>Lancez les dés, choisissez 2 ressources puis <strong>cliquez directement sur une case</strong> compatible sur la carte.</p>
             {!t5Rolled
-              ? <button onClick={()=>{setT5Dice(rollDice(4));setT5Rolled(true);setT5Sel([]);setT5Place({})}} style={{ padding:'10px 0', background:'#f59e0b', color:'white', border:'none', borderRadius:8, fontWeight:600, fontSize:14, cursor:'pointer' }}>🎲 Lancer les 4 dés</button>
+              ? <RollButton label="Lancer les 4 dés" onRoll={(vals) => { setT5Dice(vals); setT5Rolled(true); setT5Sel([]); setT5Place({}) }} />
               : <>
                   {/* Phase 1 : choisir 2 dés */}
                   {t5Sel.length<2 && <>
