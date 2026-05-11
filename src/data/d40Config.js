@@ -1,87 +1,61 @@
 /**
- * data/d40Config.js
- * Configuration du D40 : attribution des faces aux cases de bord de la carte 5×5.
- * Générée aléatoirement au setup et stockée dans le gameState.
+ * d40Config.js — v2
  *
- * La carte 5×5 a 4 bords × 5 cases = 20 cases de bord.
- * Chaque case de bord se voit attribuer un certain nombre de faces.
+ * Attribution fixe des bords :
+ * - Solmeria (4) : bords gauches des 5 lignes  → avance gauche→droite
+ * - Varyndor (1) : bords hauts des 5 colonnes  → avance haut→bas
+ * - Elyssar  (2) : bords droits des 5 lignes   → avance droite→gauche
+ * - Kharzun  (3) : bords bas des 5 colonnes    → avance bas→haut
  *
- * 4 profils d'empire (mélangés aléatoirement au setup) :
- * - Profil A : 5 cases × 1 face  = 5 faces
- * - Profil B : 2×1 + 3×2         = 8 faces  (côté groupé aléatoire : gauche ou droite)
- * - Profil C : 5 cases × 2 faces = 10 faces
- * - Profil D : 3×3 + 2×4         = 17 faces (côté groupé aléatoire)
- * Total : 40 faces = 1D40
- *
- * Chaque empire occupe un bord de la carte 5×5 :
- * - Empire 1 (Varyndor) : bord haut    → cases (0,0)..(0,4)
- * - Empire 2 (Elyssar)  : bord droite  → cases (0,4)..(4,4)
- * - Empire 3 (Kharzun)  : bord bas     → cases (4,0)..(4,4)
- * - Empire 4 (Solmeria) : bord gauche  → cases (0,0)..(4,0)
+ * 4 profils distribués aléatoirement entre les 4 empires au setup :
+ * A: 1×5=5, B: 1+1+2+2+2=8, C: 2×5=10, D: 3+3+3+4+4=17 → total 40
  */
 
-// Les 4 profils de distribution des faces
 const PROFILS = [
-  { id: 'A', faces: [1,1,1,1,1] },                     // 5 faces total
-  { id: 'B', facesGauche: [1,1,2,2,2], facesDroite: [2,2,2,1,1] }, // 8 faces, côté variable
-  { id: 'C', faces: [2,2,2,2,2] },                     // 10 faces total
-  { id: 'D', facesGauche: [3,3,3,4,4], facesDroite: [4,4,3,3,3] }, // 17 faces, côté variable
+  { id:'A', faces:[1,1,1,1,1] },
+  { id:'B', facesL:[1,1,2,2,2], facesR:[2,2,2,1,1] },
+  { id:'C', faces:[2,2,2,2,2] },
+  { id:'D', facesL:[3,3,3,4,4], facesR:[4,4,3,3,3] },
 ]
 
-/**
- * Génère la configuration D40 aléatoirement.
- * Retourne un tableau de 40 entrées { empireId, row, col }
- * où chaque entrée représente une face du D40.
- */
+// Bords fixes par empire : { empireId, row, col, direction }
+// direction = vecteur de déplacement (dr, dc) depuis le bord vers l'intérieur
+const BORDS_EMPIRE = {
+  4: Array.from({length:5},(_,i)=>({ row:i, col:0,  dr:0, dc: 1 })),  // Solmeria : gauche→droite
+  1: Array.from({length:5},(_,i)=>({ row:0, col:i,  dr:1, dc: 0 })),  // Varyndor : haut→bas
+  2: Array.from({length:5},(_,i)=>({ row:i, col:4,  dr:0, dc:-1 })),  // Elyssar  : droite→gauche
+  3: Array.from({length:5},(_,i)=>({ row:4, col:i,  dr:-1,dc: 0 })),  // Kharzun  : bas→haut
+}
+
 export function genererConfigD40() {
-  // Mélanger les profils entre les 4 empires
+  // Mélanger les 4 profils aléatoirement entre les 4 empires
   const profils = [...PROFILS]
-  for (let i = profils.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [profils[i], profils[j]] = [profils[j], profils[i]]
+  for (let i=profils.length-1; i>0; i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [profils[i],profils[j]]=[profils[j],profils[i]]
   }
 
-  // Cases de bord par empire (dans l'ordre, de gauche à droite ou de haut en bas)
-  const bordeaux = {
-    1: Array.from({length:5}, (_,i) => ({row:0, col:i})),   // haut
-    2: Array.from({length:5}, (_,i) => ({row:i, col:4})),   // droite
-    3: Array.from({length:5}, (_,i) => ({row:4, col:4-i})), // bas (droite→gauche)
-    4: Array.from({length:5}, (_,i) => ({row:4-i, col:0})), // gauche (bas→haut)
-  }
-
-  // Pour chaque empire (1-4), attribuer son profil et générer les faces
-  const faces = [] // { empireId, row, col, face: numéro 1..40 }
+  const faces = []
   let faceNum = 1
+  const empireOrder = [4,1,2,3] // ordre d'attribution des profils
 
-  for (let empireId = 1; empireId <= 4; empireId++) {
-    const profil = profils[empireId - 1]
-    const cases  = bordeaux[empireId]
+  empireOrder.forEach((empireId, pIdx) => {
+    const profil = profils[pIdx]
+    const bords  = BORDS_EMPIRE[empireId]
+    const facesParCase = profil.faces || (Math.random()<0.5 ? profil.facesL : profil.facesR)
 
-    // Déterminer les faces par case
-    let facesParCase
-    if (profil.faces) {
-      facesParCase = profil.faces
-    } else {
-      // Côté aléatoire pour B et D
-      facesParCase = Math.random() < 0.5 ? profil.facesGauche : profil.facesDroite
-    }
-
-    // Générer les entrées
-    for (let i = 0; i < 5; i++) {
+    bords.forEach((bord, i) => {
       const nb = facesParCase[i]
-      for (let f = 0; f < nb; f++) {
-        faces.push({ empireId, row: cases[i].row, col: cases[i].col, faceD40: faceNum })
+      for (let f=0; f<nb; f++) {
+        faces.push({ empireId, row:bord.row, col:bord.col, dr:bord.dr, dc:bord.dc, faceD40:faceNum })
         faceNum++
       }
-    }
-  }
+    })
+  })
 
   return faces // 40 entrées
 }
 
-/**
- * Résoudre un lancer de D40 : retourne l'entrée correspondante.
- */
 export function resoudreD40(valeur, configD40) {
-  return configD40.find(f => f.faceD40 === valeur) || null
+  return configD40?.find(f => f.faceD40 === valeur) || null
 }

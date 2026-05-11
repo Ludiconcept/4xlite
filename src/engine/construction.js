@@ -129,9 +129,10 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
     }
   }
 
-  // Max 3 bâtiments différents par case
+  // Max 3 bâtiments par case — si plein, le composant proposera de remplacer
   const existing = tile.buildings || []
-  if (existing.length >= 3) return { ok: false, raison: 'Case complète (3 bâtiments max).' }
+  // Si la case est pleine, on signale avec un flag spécial (pas un refus)
+  if (existing.length >= 3) return { ok: false, raison: 'Case complète (3 bâtiments max).', casePleine: true }
 
   const countSame = existing.filter(b => b === batimentId).length
   if (countSame >= (bat.maxParCase || 1)) {

@@ -37,7 +37,8 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
   const [useAlt,       setUseAlt]   = useState(false)
   const [collineMat,   setCollineMat] = useState(null) // pour Ferme en Colline
   const [empireId,     setEmpireId]  = useState(null)  // pour Ambassade
-  const [phase, setPhase]           = useState('select') // select | confirm
+  const [phase, setPhase]           = useState('select') // select | replaceChoice | confirm
+  const [replaceBat,   setReplaceBat] = useState(null)  // bâtiment à remplacer
 
   if (!game) return null
 
@@ -56,14 +57,17 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
   useEffect(() => {
     if (!constructTileClicked) return
     const tile = playerTiles.find(t => t.row === constructTileClicked.row && t.col === constructTileClicked.col)
-    if (tile) { setTile(tile); setBat(null); setPhase('select') }
+    if (tile) { setTile(tile); setBat(null); setReplaceBat(null); setPhase('select') }
     onConstructTileHandled?.()
   }, [constructTileClicked]) // eslint-disable-line
 
   // Bâtiments pour la case sélectionnée
   const batiments = selectedTile ? getBatimentsDisponibles(selectedTile, game) : []
-  const disponibles = batiments.filter(b => b.disponibilite.ok)
-  const bloques    = batiments.filter(b => !b.disponibilite.ok)
+  const casePleineSelected = (selectedTile?.buildings || []).length >= 3
+  // Si la case est pleine, on montre quand même les bâtiments comme "disponibles" pour le remplacement
+  // SAUF ceux bloqués pour d'autres raisons (max global, terrain incompatible...)
+  const disponibles = batiments.filter(b => b.disponibilite.ok || (casePleineSelected && b.disponibilite.casePleine))
+  const bloques    = batiments.filter(b => !b.disponibilite.ok && !(casePleineSelected && b.disponibilite.casePleine))
 
   function selectBat(batId) {
     setBat(batId)
@@ -75,18 +79,60 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
     setUseAlt(!mainOk && altOk)
     setCollineMat(null)
     setEmpireId(null)
-    setPhase('confirm')
+    // Si case pleine, proposer de remplacer
+    if ((selectedTile?.buildings || []).length >= 3) {
+      setPhase('replaceChoice')
+    } else {
+      setPhase('confirm')
+    }
   }
 
   function confirmer() {
     if (!selectedTile || !selectedBat) return
-    const key = `${selectedTile.row}-${selectedTile.col}`
-    const newGame = appliquerConstruction(selectedBat, key, game, { useAlt, collineMat, empireId })
-    updateGame(() => newGame)
-    const bat = BATIMENTS[selectedBat]
+    const row = selectedTile.row
+    const col = selectedTile.col
+    const key = `${row}-${col}`
+    const batInfo = BATIMENTS[selectedBat]
+    if (!batInfo) return
+
+    // Calculer le nouveau game state
+    let ng = { ...game }
+
+    // Retirer le bâtiment remplacé si nécessaire
+    if (replaceBat) {
+      let removed = false
+      ng = {
+        ...ng,
+        map: ng.map.map(r => r.map(t => {
+          if (t.row !== row || t.col !== col) return t
+          const newBuildings = []
+          for (const b of (t.buildings || [])) {
+            if (b === replaceBat && !removed) { removed = true; continue }
+            newBuildings.push(b)
+          }
+          return { ...t, buildings: newBuildings }
+        }))
+      }
+    }
+
+    // Appliquer la construction
+    ng = appliquerConstruction(selectedBat, key, ng, { useAlt, collineMat, empireId })
+    if (!ng) return // sécurité
+
+    // Mettre à jour le state
+    updateGame(() => ng)
+
+    // Journal
     const empStr = empireId ? ` → ${EMPIRE_CONFIG[empireId]?.name}` : ''
-    addEntry(`Construction : ${bat.emoji} ${bat.name} en (${selectedTile.col+1},${selectedTile.row+1})${empStr}`, game.turn)
-    onMarkUsed?.(); onClose()
+    const replStr = replaceBat ? ` (remplace ${BATIMENTS[replaceBat]?.name})` : ''
+    addEntry(
+      `Construction : ${batInfo.emoji} ${batInfo.name} en (${col+1},${row+1})${empStr}${replStr}`,
+      game.turn
+    )
+
+    // Fermer l'action
+    onMarkUsed?.()
+    onClose()
   }
 
   const bat = selectedBat ? BATIMENTS[selectedBat] : null
@@ -96,7 +142,7 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
     const avec = game.map.flat().filter(t => t.ambassadeEmpire === id && t.buildings?.includes('ambassade'))
     return avec.length === 0
   })
-  const readyToConfirm = bat && (!isFermeColline || collineMat) && (!isAmbassade || empireId)
+  const readyToConfirm = bat && (!isFermeColline || collineMat) && (!isAmbassade || empireId) && (!casePleineSelected || replaceBat)
 
   return (
     <div style={{ background:'white', border:'0.5px solid #e2e8f0', borderRadius:12, padding:14, width:280, display:'flex', flexDirection:'column', gap:10 }}>

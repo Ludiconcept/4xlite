@@ -79,15 +79,17 @@ function PanelCommerce({ game, usedThisTurn, onConfirm, onClose }) {
   const [res1Vendre, setRes1Vendre] = useState(null)
   const [res2Vendre, setRes2Vendre] = useState(null)
 
-  const nbMarchés  = game.map.flat().filter(t => t.owner==='player' && t.buildings?.includes('marche')).length
-  const nbArtisans = game.population.artisan || 0
+  const nbMarchés   = game.map.flat().filter(t => t.owner==='player' && t.buildings?.includes('marche')).length
+  const nbArtisans  = game.population.artisan || 0
   const utilisations = usedThisTurn.commerce || 0
-  const restantes  = nbArtisans - utilisations
+  const restantes   = nbArtisans - utilisations
 
-  // Avec Marché : 1 Or → 2 ressources, mais 1×/Marché/tour (en plus des achats normaux)
-  // Logique : les (utilisations < nbMarchés) premières utilisations = 1Or→2res, le reste = 1Or→1res
-  const utilisationsMarche = Math.min(utilisations, nbMarchés)
-  const cetteFoisMarche = utilisations < nbMarchés  // cette utilisation bénéficie du marché
+  // Marché : améliore les achats uniquement (1Or→2res au lieu de 1Or→1res)
+  // Quota Marché = 1×/Marché/tour, indépendant du quota Artisan
+  // achatsEffectues = nb d'achats déjà faits ce tour (on ne peut pas le savoir sans tracking séparé)
+  // Simplification : on compte les utilisations Marché depuis les turnLimits
+  const marchesUtilises = usedThisTurn.commerceMarche || 0
+  const cetteFoisMarche = marchesUtilises < nbMarchés
   const qtéAchat = cetteFoisMarche ? 2 : 1
 
   const totalStocké = Object.values(game.resources).reduce((a,b)=>a+b,0)
@@ -275,10 +277,11 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
   const [activeAction, setActive]     = useState(null)
   // turnLimits persisté dans le gameStore (reset en fin de tour)
   const usedThisTurn = {
-    grandir: game?.turnLimits?.grandir || 0,
-    recruter: game?.turnLimits?.recruter || 0,
-    commerce: game?.turnLimits?.commerce || 0,
-    servage: game?.turnLimits?.servageUsed ? 1 : 0,
+    grandir:       game?.turnLimits?.grandir || 0,
+    recruter:      game?.turnLimits?.recruter || 0,
+    commerce:      game?.turnLimits?.commerce || 0,
+    commerceMarche:game?.turnLimits?.commerceMarche || 0,
+    servage:       game?.turnLimits?.servageUsed ? 1 : 0,
   }
   const armerActive = game?.activeEffects?.armerActif || false
   function setArmerActive(val) {
@@ -299,8 +302,14 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
       const tl = g.turnLimits || {}
       if (actionId === 'grandir')  return { ...g, turnLimits: { ...tl, grandir:  (tl.grandir||0)+1 } }
       if (actionId === 'recruter') return { ...g, turnLimits: { ...tl, recruter: (tl.recruter||0)+1 } }
-      // Commerce : n'incrémenter que si achat (pas vente — la vente ne consomme pas le Marché)
-      if (actionId === 'commerce' && params?.mode !== 'vendre') return { ...g, turnLimits: { ...tl, commerce: (tl.commerce||0)+1 } }
+      // Commerce : incrémenter pour achat ET vente (1 utilisation par artisan)
+      if (actionId === 'commerce') {
+        const newTl = { ...tl, commerce: (tl.commerce||0)+1 }
+        // Si achat avec marché, incrémenter le compteur marché
+        if (params?.mode === 'acheter' && params?.qté >= 2)
+          newTl.commerceMarche = (tl.commerceMarche||0)+1
+        return { ...g, turnLimits: newTl }
+      }
       if (actionId === 'servage')  return { ...g, turnLimits: { ...tl, servageUsed: true } }
       return g
     })

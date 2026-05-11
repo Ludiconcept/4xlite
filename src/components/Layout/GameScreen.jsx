@@ -158,7 +158,7 @@ export function GameScreen() {
     setDicePhase('idle')
     setDiceValues([])
     // Reset turnLimits dans le game store
-    updateGame(g => ({ ...g, turnLimits: { grandir:0, recruter:0, commerce:0, servageUsed:false } }))
+    updateGame(g => ({ ...g, turnLimits: { grandir:0, recruter:0, commerce:0, commerceMarche:0, servageUsed:false } }))
     addEntry(`Fin du tour ${game.turn}`, game.turn)
   }
 
@@ -209,31 +209,36 @@ export function GameScreen() {
         )}
       </div>
 
-      {/* Zone basse : DiceZone intègre désormais le bouton Spéciales */}
+      {/* Zone basse : tour empires OU dés joueur */}
       <div style={{ borderTop:'0.5px solid #e2e8f0', flexShrink:0 }}>
-        <DiceZone
-          onTurnEnd={handleTurnEnd}
-          onActionsConfirmed={handleActionsConfirmed}
-          onActionClick={handleActionClick}
-          onActionsPhaseStart={handleActionsPhaseStart}
-          onDiceRolled={handleDiceRolled}
-          confirmedActions={confirmedActions}
-          usedActions={usedActions}
-          externalDiceValues={dicePhase === 'rolled' && diceValues.length > 0 ? diceValues : null}
-          onDiceValuesChange={setDiceValues}
-          showSpeciales={showSpeciales}
-          onToggleSpeciales={() => setShowSpeciales(v => !v)}
-        />
+        {showEmpires ? (
+          <TourEmpiresPanel
+            onClose={() => setShowEmpires(false)}
+            onHighlightCase={(tile, action) => {
+              if (tile) setHighlight([{ ...tile, empireAction: action }])
+              else setHighlight([])
+            }}
+          />
+        ) : (
+          <DiceZone
+            onTurnEnd={handleTurnEnd}
+            onActionsConfirmed={handleActionsConfirmed}
+            onActionClick={handleActionClick}
+            onActionsPhaseStart={handleActionsPhaseStart}
+            onDiceRolled={handleDiceRolled}
+            confirmedActions={confirmedActions}
+            usedActions={usedActions}
+            externalDiceValues={dicePhase === 'rolled' && diceValues.length > 0 ? diceValues : null}
+            onDiceValuesChange={setDiceValues}
+            showSpeciales={showSpeciales}
+            onToggleSpeciales={() => setShowSpeciales(v => !v)}
+          />
+        )}
       </div>
 
       {famineData && <FaminePopup famineData={famineData} onConfirm={handleFamineConfirm} />}
       {showJournal    && <JournalPanel     onClose={() => setShowJournal(false)} />}
       {showEvenements && <EvenementsPanel  onClose={() => setShowEvenements(false)} />}
-      {showEmpires    && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.4)', zIndex:500, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <TourEmpiresPanel onClose={() => setShowEmpires(false)} />
-        </div>
-      )}
     </div>
   )
 }
