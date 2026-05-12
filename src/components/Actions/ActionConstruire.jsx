@@ -216,6 +216,29 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
         </div>
       )}
 
+      {/* Remplacement bâtiment — case pleine */}
+      {selectedTile && phase === 'replaceChoice' && bat && (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', fontSize:12, color:'#92400e', lineHeight:1.4 }}>
+            ⚠️ Case complète (3 bâtiments). Choisissez lequel remplacer :
+          </div>
+          {(selectedTile.buildings || []).map((bId, idx) => {
+            const bInfo = BATIMENTS[bId]
+            return (
+              <button key={idx} onClick={() => { setReplaceBat(bId); setPhase('confirm') }}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, border:'1.5px solid #fca5a5', background:'#fef2f2', cursor:'pointer', textAlign:'left' }}>
+                <span style={{ fontSize:18 }}>{bInfo?.emoji || '?'}</span>
+                <span style={{ fontSize:12, fontWeight:500, color:'#dc2626' }}>Remplacer {bInfo?.name || bId}</span>
+              </button>
+            )
+          })}
+          <button onClick={() => { setBat(null); setReplaceBat(null); setPhase('select') }}
+            style={{ padding:'7px 0', borderRadius:8, border:'1px solid #e2e8f0', background:'white', fontSize:12, cursor:'pointer', color:'#475569' }}>
+            ← Annuler
+          </button>
+        </div>
+      )}
+
       {/* Confirmation */}
       {selectedTile && phase === 'confirm' && bat && (
         <>

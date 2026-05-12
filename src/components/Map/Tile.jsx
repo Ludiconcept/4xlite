@@ -271,8 +271,13 @@ export function Tile({
 
   // ── Couleurs de base ──
   let borderColor = '#cbd5e1', bgColor = '#e2e8f0', ownerLabel = null
-  if (!explored) {
+  if (!explored && !owner) {
+    // Case non explorée sans propriétaire : gris
     bgColor = '#e2e8f0'; borderColor = '#cbd5e1'
+  } else if (!explored && owner && EMPIRE_CONFIG[owner]) {
+    // Case empire non explorée : couleur empire (bord seulement)
+    const cfg = EMPIRE_CONFIG[owner]
+    bgColor = '#e2e8f0'; borderColor = cfg.color; ownerLabel = cfg.emoji
   } else if (owner === 'player') {
     bgColor = '#eff6ff'; borderColor = '#2563eb'
   } else if (owner && EMPIRE_CONFIG[owner]) {
@@ -294,19 +299,19 @@ export function Tile({
   // Fond rayé diagonal blanc/jaune + contour épais animé
   const highlightStyle = isHighlighted ? {
     background: 'repeating-linear-gradient(45deg, #fef9c3 0px, #fef9c3 4px, #fde68a 4px, #fde68a 8px)',
-    borderColor: '#f59e0b',
+    borderWidth: '2px', borderStyle: 'solid', borderColor: '#f59e0b',
     animation: 'validPulse 1.2s ease-in-out infinite',
     cursor: 'crosshair',
   } : {}
 
   const clickableStyle = isClickable ? {
-    borderColor: '#f59e0b',
+    borderWidth: '2px', borderStyle: 'solid', borderColor: '#f59e0b',
     animation: 'validPulse 1.2s ease-in-out infinite',
     cursor: 'crosshair',
   } : {}
 
   const selectedStyle = isSelected ? {
-    borderColor: '#f59e0b',
+    borderWidth: '2px', borderStyle: 'solid', borderColor: '#f59e0b',
     outline: '3px solid #f59e0b',
     outlineOffset: 2,
   } : {}
@@ -339,7 +344,9 @@ export function Tile({
     <div
       style={{
         width: size, height: size, borderRadius: 5,
-        border: `${borderWidth}px solid ${borderColor}`,
+        borderWidth: `${borderWidth}px`,
+        borderStyle: 'solid',
+        borderColor: borderColor,
         background: bgColor,
         position: 'relative',
         cursor: (isHighlighted || isClickable) ? 'crosshair' : 'pointer',

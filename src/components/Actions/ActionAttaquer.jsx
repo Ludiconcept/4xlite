@@ -113,8 +113,8 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
   const pertesFinales  = result ? Math.max(0, pertesJoueur - reductionBonus) : 0
   const pertesEmpire = result ? result.pertesDefenseur : 0
   const newPower     = empire ? Math.max(0, empire.power - pertesEmpire) : 0
-  const depassement  = empire ? Math.max(0, pertesEmpire - (empire.power || 0)) : 0
-  const newMaxPower  = empire ? Math.max(0, (empire.maxPower || 8) - depassement) : 0
+  // La puissance MAX ne baisse jamais lors d'un combat
+  const newMaxPower  = empire ? (empire.maxPower || 8) : 0
 
   // Bouton fermer désactivé pendant et après le combat
   const canClose = phase !== 'rolling' && phase !== 'result'
@@ -264,13 +264,9 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
               <div style={{ background:'rgba(71,85,105,.08)', borderRadius:7, padding:'7px 8px' }}>
                 <div style={{ fontSize:11, fontWeight:500, color:'#475569', marginBottom:3 }}>Pertes ennemies</div>
                 <div style={{ fontSize:13, color:'#1e293b', whiteSpace:'nowrap' }}>
-                  Puiss {empire.power} → <span style={{ fontWeight:500 }}>{newPower}</span>
+                  Puiss {empire?.power ?? '?'} → <span style={{ fontWeight:500 }}>{newPower}</span>
                 </div>
-                {depassement > 0 && (
-                  <div style={{ fontSize:12, color:'#dc2626', whiteSpace:'nowrap' }}>
-                    Max {empire.maxPower} → <span style={{ fontWeight:500 }}>{newMaxPower}</span>
-                  </div>
-                )}
+
               </div>
             </div>
 

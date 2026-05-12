@@ -43,7 +43,8 @@ export function getCasesExplorables(map) {
         map[r-1]?.[c], map[r+1]?.[c],
         map[r]?.[c-1], map[r]?.[c+1],
       ]
-      if (voisins.some(v => v?.explored)) result.push(tile)
+      // Seules les cases adjacentes à une case EXPLORÉE PAR LE JOUEUR sont explorables
+      if (voisins.some(v => v?.explored && v?.owner === 'player')) result.push(tile)
     }
   }
   return result

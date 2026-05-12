@@ -36,71 +36,210 @@ function EmpireDie({ value, rolling, active, size=52 }) {
   )
 }
 
+// Dé animé (même composant que ActionAttaquer)
+function AnimDieCombat({ finalValue, rolling, color = '#1e293b' }) {
+  const [display, setDisplay] = useState('?')
+  const [bouncing, setBouncing] = useState(false)
+  const interval = useRef(null)
+  useEffect(() => {
+    if (rolling) {
+      interval.current = setInterval(() => setDisplay(Math.floor(Math.random()*6)+1), 80)
+    } else {
+      clearInterval(interval.current)
+      setDisplay(finalValue ?? '?')
+      if (finalValue) { setBouncing(true); setTimeout(()=>setBouncing(false),350) }
+    }
+    return () => clearInterval(interval.current)
+  }, [rolling, finalValue])
+  return (
+    <div style={{ width:36,height:36,borderRadius:8,border:`2px solid ${color}`,background:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,fontWeight:500,color,transform:bouncing?'scale(1.2)':'scale(1)',transition:'transform .12s',flexShrink:0 }}>
+      {display}
+    </div>
+  )
+}
+
 function CombatPopup({ empireId, targetCase, game, onConfirm }) {
-  const [guerriers, setGuerriers] = useState(0)
+  const [guerriers,    setGuerriers]    = useState(0)
+  const [soignerUsed,  setSoignerUsed]  = useState(false)
+  const [phase,        setPhase]        = useState('prepare') // prepare | rolling | result
+  const [rolling,      setRolling]      = useState(false)
+  const [dieEmpire,    setDieEmpire]    = useState(null)
+  const [dieJoueur,    setDieJoueur]    = useState(null)
   const [combatResult, setCombatResult] = useState(null)
-  const cfg = EMPIRE_CONFIG[empireId]
-  const emp = game.empires?.[empireId] || { power:2, maxPower:8 }
-  const maxG = game.population?.guerrier || 0
-  const tile = game.map[targetCase.row]?.[targetCase.col]
+
+  const cfg        = EMPIRE_CONFIG[empireId]
+  const emp        = game.empires?.[empireId] || { power:2, maxPower:8 }
+  const maxG       = game.population?.guerrier || 0
+  const tile       = game.map[targetCase.row]?.[targetCase.col]
+  // Armer : appliqué automatiquement si actif
+  const armerActif = game.activeEffects?.armerActif || false
+  const hasHopital = game.map.flat().some(t => t.owner==='player' && t.buildings?.includes('hopital'))
+  const hasNourriture = (game.resources?.nourriture||0) >= 1
+
+  async function lancerCombat() {
+    setPhase('rolling'); setRolling(true); setDieEmpire(null); setDieJoueur(null)
+    await new Promise(r => setTimeout(r, 700))
+    const res = resoudreCombatEmpireVsJoueur(empireId, tile, game, guerriers)
+    // Garder les pertes BRUTES — les réductions seront appliquées à la confirmation
+    setDieEmpire(res.de2); setDieJoueur(res.de1); setRolling(false)
+    await new Promise(r => setTimeout(r, 400))
+    setCombatResult(res); setPhase('result')
+  }
+
+  function confirmerAvecSoigner() {
+    const res = { ...combatResult }
+    // Appliquer toutes les réductions : auto (Armer + bâtiments) + Soigner si activé
+    const reductionAuto = (armerActif ? 1 : 0)
+      + (res.reductionTourDeGuet || 0)
+      + (res.reductionForteresse || 0)
+    const reductionSoigner = soignerUsed ? 1 : 0
+    res.pertesJoueur = Math.max(0, res.pertesJoueur - reductionAuto - reductionSoigner)
+    res.newGame = { ...res.newGame,
+      population: { ...res.newGame.population, guerrier: Math.max(0, (game.population?.guerrier||0) - res.pertesJoueur) },
+      activeEffects: { ...res.newGame.activeEffects, armerActif: armerActif ? false : res.newGame.activeEffects?.armerActif }
+    }
+    if (soignerUsed) {
+      res.newGame = { ...res.newGame,
+        resources: { ...res.newGame.resources, nourriture: Math.max(0,(res.newGame.resources.nourriture||0)-1) }
+      }
+    }
+    onConfirm(res)
+  }
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:600, display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <div style={{ background:'white', borderRadius:12, padding:20, width:320, display:'flex', flexDirection:'column', gap:12, boxShadow:'0 8px 32px rgba(0,0,0,.25)' }}>
+      <div style={{ background:'white', borderRadius:12, padding:20, width:310, display:'flex', flexDirection:'column', gap:12, boxShadow:'0 8px 32px rgba(0,0,0,.25)' }}>
+
+        {/* Header */}
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ width:36, height:36, borderRadius:9, background:cfg.colorLight, border:`2px solid ${cfg.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>{cfg.emoji}</div>
+          <div style={{ width:36,height:36,borderRadius:9,background:cfg.colorLight,border:`2px solid ${cfg.color}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18 }}>{cfg.emoji}</div>
           <div>
             <div style={{ fontWeight:600, fontSize:14, color:'#dc2626' }}>{cfg.name} attaque !</div>
             <div style={{ fontSize:12, color:'#64748b' }}>Case ({targetCase.col+1},{targetCase.row+1}) · Puissance : {emp.power}</div>
           </div>
         </div>
-        {!combatResult ? (
+
+        {/* PRÉPARATION */}
+        {phase === 'prepare' && (
           <>
             <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, padding:'8px 10px', fontSize:12, color:'#7f1d1d', lineHeight:1.5 }}>
               Défense : 1D6 + guerriers vs 1D6 + {emp.power}. Égalité → vous défendez.
+              {armerActif && <><br/><span style={{ color:'#d97706' }}>🗡️ Armer actif : -1 perte automatiquement.</span></>}
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               <span style={{ flex:1, fontSize:13 }}>⚔️ Guerriers ({maxG} dispo.)</span>
               <button onClick={()=>setGuerriers(g=>Math.max(0,g-1))} disabled={guerriers===0}
                 style={{ width:24,height:24,borderRadius:5,border:'1px solid #e2e8f0',background:'white',cursor:guerriers>0?'pointer':'default',opacity:guerriers===0?0.3:1,fontSize:15 }}>−</button>
-              <span style={{ width:28,textAlign:'center',fontWeight:600,fontSize:16 }}>{guerriers}</span>
+              <span style={{ width:28, textAlign:'center', fontWeight:600, fontSize:16 }}>{guerriers}</span>
               <button onClick={()=>setGuerriers(g=>Math.min(maxG,g+1))} disabled={guerriers>=maxG}
                 style={{ width:24,height:24,borderRadius:5,border:'1px solid #e2e8f0',background:'white',cursor:guerriers<maxG?'pointer':'default',opacity:guerriers>=maxG?0.3:1,fontSize:15 }}>+</button>
             </div>
-            <button onClick={()=>setCombatResult(resoudreCombatEmpireVsJoueur(empireId, tile, game, guerriers))}
+            <button onClick={lancerCombat}
               style={{ padding:'10px 0',borderRadius:9,border:'none',background:'#dc2626',color:'white',fontSize:14,fontWeight:500,cursor:'pointer' }}>
               ⚔️ Lancer le combat
             </button>
           </>
-        ) : (
+        )}
+
+        {/* ANIMATION */}
+        {phase === 'rolling' && (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:14, padding:'10px 0' }}>
+            <div style={{ fontSize:13, color:'#64748b', fontWeight:500 }}>Combat en cours…</div>
+            <div style={{ display:'flex', gap:28, alignItems:'center' }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <div style={{ fontSize:11, color:'#64748b' }}>Vous</div>
+                <AnimDieCombat finalValue={dieJoueur} rolling={rolling} color="#16a34a" />
+              </div>
+              <span style={{ fontSize:18, color:'#94a3b8', fontWeight:700 }}>vs</span>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <div style={{ fontSize:11, color:'#64748b' }}>{cfg.name}</div>
+                <AnimDieCombat finalValue={dieEmpire} rolling={rolling} color="#dc2626" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RÉSULTAT */}
+        {phase === 'result' && combatResult && (
           <>
-            <div style={{ background:combatResult.empireGagne?'#fef2f2':'#f0fdf4', border:`1px solid ${combatResult.empireGagne?'#fca5a5':'#86efac'}`, borderRadius:9, padding:12 }}>
-              <div style={{ fontWeight:600, fontSize:14, color:combatResult.empireGagne?'#dc2626':'#166534', textAlign:'center', marginBottom:10 }}>
+            <div style={{ background:combatResult.empireGagne?'#fef2f2':'#f0fdf4', border:`1px solid ${combatResult.empireGagne?'#fca5a5':'#86efac'}`, borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:10 }}>
+              <div style={{ textAlign:'center', fontSize:15, fontWeight:500, color:combatResult.empireGagne?'#dc2626':'#166534' }}>
                 {combatResult.empireGagne ? '💀 L\'empire prend la case !' : '🛡️ Vous défendez !'}
               </div>
-              <div style={{ display:'flex', gap:16, justifyContent:'center', marginBottom:10 }}>
-                <div style={{ textAlign:'center' }}>
-                  <div style={{ fontSize:24,fontWeight:700,color:'#dc2626' }}>{combatResult.de2}</div>
-                  <div style={{ fontSize:11,color:'#64748b' }}>Dé empire +{emp.power} = {combatResult.scoreAtt}</div>
+              {/* Dés + totaux */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <div style={{ fontSize:11, color:'#64748b', fontWeight:500 }}>Vous</div>
+                  <AnimDieCombat finalValue={combatResult.de1} rolling={false} color="#16a34a" />
+                  <div style={{ fontSize:11, color:'#94a3b8' }}>dé</div>
+                  <div style={{ width:36,height:22,borderRadius:5,background:'#f0fdf4',border:'1px solid #86efac',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:500,color:'#16a34a' }}>+{guerriers}</div>
+                  <div style={{ fontSize:10, color:'#94a3b8' }}>guerriers</div>
+                  {combatResult.bonusDef > 0 && <>
+                    <div style={{ width:36,height:22,borderRadius:5,background:'#fefce8',border:'1px solid #fde68a',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:500,color:'#d97706' }}>+{combatResult.bonusDef}</div>
+                    <div style={{ fontSize:10, color:'#d97706' }}>défense 🗼</div>
+                  </>}
+                  <div style={{ width:44,height:34,borderRadius:7,background:'#16a34a',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:500,color:'white' }}>{combatResult.scoreDef}</div>
+                  <div style={{ fontSize:10, color:'#94a3b8', fontWeight:500 }}>total</div>
                 </div>
-                <div style={{ alignSelf:'center',fontSize:18,color:'#94a3b8',fontWeight:700 }}>vs</div>
-                <div style={{ textAlign:'center' }}>
-                  <div style={{ fontSize:24,fontWeight:700,color:'#16a34a' }}>{combatResult.de1}</div>
-                  <div style={{ fontSize:11,color:'#64748b' }}>Votre dé +{guerriers} = {combatResult.scoreDef}</div>
+                <div style={{ fontSize:13, color:'#94a3b8', fontWeight:500, marginTop:20 }}>vs</div>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <div style={{ fontSize:11, color:'#64748b', fontWeight:500 }}>{cfg.emoji} {cfg.name}</div>
+                  <AnimDieCombat finalValue={combatResult.de2} rolling={false} color="#dc2626" />
+                  <div style={{ fontSize:11, color:'#94a3b8' }}>dé</div>
+                  <div style={{ width:36,height:22,borderRadius:5,background:'#fef2f2',border:'1px solid #fca5a5',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:500,color:'#dc2626' }}>+{emp.power}</div>
+                  <div style={{ fontSize:10, color:'#94a3b8' }}>puissance</div>
+                  <div style={{ width:44,height:34,borderRadius:7,background:'#dc2626',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:500,color:'white' }}>{combatResult.scoreAtt}</div>
+                  <div style={{ fontSize:10, color:'#94a3b8', fontWeight:500 }}>total</div>
                 </div>
               </div>
-              <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:12 }}>
-                <div style={{ background:'rgba(220,38,38,.08)',borderRadius:7,padding:'6px 8px' }}>
-                  <div style={{ color:'#dc2626',fontWeight:500 }}>Vos pertes</div>
-                  <div>{combatResult.pertesJoueur>0?`-${combatResult.pertesJoueur} guerrier(s)`:'Aucune'}</div>
+              {/* Pertes */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                <div style={{ background:'rgba(220,38,38,.08)', borderRadius:7, padding:'7px 8px' }}>
+                  <div style={{ fontSize:11, fontWeight:500, color:'#dc2626', marginBottom:3 }}>Vos pertes</div>
+                  <div style={{ fontSize:14, fontWeight:500 }}>
+                    {combatResult.pertesJoueur>0 ? `-${combatResult.pertesJoueur} guerrier(s)` : 'Aucune'}
+                  </div>
                 </div>
-                <div style={{ background:'rgba(71,85,105,.08)',borderRadius:7,padding:'6px 8px' }}>
-                  <div style={{ color:'#475569',fontWeight:500 }}>Dégâts empire</div>
-                  <div>-{combatResult.pertesEmpire} Puissance</div>
+                <div style={{ background:'rgba(71,85,105,.08)', borderRadius:7, padding:'7px 8px' }}>
+                  <div style={{ fontSize:11, fontWeight:500, color:'#475569', marginBottom:3 }}>Dégâts empire</div>
+                  <div style={{ fontSize:13 }}>-{combatResult.pertesEmpire} Puissance</div>
                 </div>
               </div>
             </div>
-            <button onClick={()=>onConfirm(combatResult)}
+
+            {/* Armer + Soigner — comme ActionAttaquer */}
+            {(armerActif || hasHopital || combatResult.reductionTourDeGuet > 0 || combatResult.reductionForteresse > 0) && combatResult.pertesJoueur > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                {armerActif && (
+                  <div style={{ padding:'5px 10px', borderRadius:8, background:'#fef9c3', border:'1px solid #f59e0b', fontSize:11, color:'#92400e' }}>
+                    ✓ Armer : -1 perte
+                  </div>
+                )}
+                {combatResult.reductionTourDeGuet > 0 && (
+                  <div style={{ padding:'5px 10px', borderRadius:8, background:'#fef9c3', border:'1px solid #f59e0b', fontSize:11, color:'#92400e' }}>
+                    🗼 Tour de guet : -1 perte (victoire)
+                  </div>
+                )}
+                {combatResult.reductionForteresse > 0 && (
+                  <div style={{ padding:'5px 10px', borderRadius:8, background:'#fef9c3', border:'1px solid #f59e0b', fontSize:11, color:'#92400e' }}>
+                    🏰 Forteresse : -1 perte (victoire)
+                  </div>
+                )}
+                {hasHopital && hasNourriture && !soignerUsed && (
+                  <button onClick={()=>setSoignerUsed(true)}
+                    style={{ padding:'7px 10px', borderRadius:8, border:'1px solid #16a34a', background:'#f0fdf4', color:'#166534', fontSize:12, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+                    <span>🏥</span> Soigner (1 Nourriture) : -1 perte
+                  </button>
+                )}
+                {soignerUsed && (
+                  <div style={{ padding:'5px 10px', borderRadius:8, background:'#f0fdf4', border:'1px solid #86efac', fontSize:11, color:'#16a34a' }}>
+                    ✓ Soigner activé : -1 perte
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button onClick={confirmerAvecSoigner}
               style={{ padding:'10px 0',borderRadius:9,border:'none',background:'#475569',color:'white',fontSize:14,fontWeight:500,cursor:'pointer' }}>
               Confirmer et continuer →
             </button>
@@ -172,7 +311,8 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
     setTimeout(() => {
       setDesValues(vals)
       setRolling(false)
-      const ordre = vals.map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v)
+      // Ordre de tirage : gauche→droite (pas trié par valeur)
+      const ordre = vals.map((v,i)=>({v,i}))
       setTimeout(() => runResolution(ordre, 0), 600)
     }, 800)
   }, []) // eslint-disable-line
@@ -237,7 +377,14 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
       gsRef.current = applyImmediate(res.evenement, gsRef.current)
     }
 
-    addLog(res, i)
+    // Mettre à jour la carte immédiatement pour colonisation/attaque
+    if (res.type === 'd40') {
+      updateGame(() => ({ ...gsRef.current }))
+    }
+
+    // Pour d40, ajouter le d40 dans le log
+    const resWithD40 = res.type==='d40' ? { ...res, d40Display: res.d40 } : res
+    addLog(resWithD40, i)
     onHighlightCase?.(null)
 
     if (res.defaite) {
@@ -342,7 +489,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
         {/* Résultats — reconstruits depuis données brutes, jamais depuis closures */}
         {resultats.length > 0 && (
           <div style={{ display:'flex',flexDirection:'column',gap:4,maxHeight:130,overflowY:'auto' }}>
-            {[...resultats].sort((a,b) => (a.dieOrigIdx??99) - (b.dieOrigIdx??99)).map((r,idx) => {
+            {resultats.map((r,idx) => {
               let desc, bg='#f8fafc', color='#475569', border='#e2e8f0'
               if (r.type==='puissance') {
                 const cfg = EMPIRE_CONFIG[r.empireId]
@@ -362,8 +509,20 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
               } else if (r.action==='defense') {
                 desc = `🛡️ Vous avez défendu`
                 bg='#f0fdf4'; color='#166534'; border='#86efac'
+              } else if (r.action==='impossible') {
+                const cfg = EMPIRE_CONFIG[r.empireId]
+                desc = `${cfg?.emoji} ${cfg?.name} — Ligne/colonne déjà entièrement contrôlée`
+                bg='#f8fafc'; color='#94a3b8'; border='#e2e8f0'
+              } else if (r.action==='pasAttaque') {
+                const cfg = EMPIRE_CONFIG[r.empireId]
+                desc = `${cfg?.emoji} ${cfg?.name} — Puissance 0, attaque annulée`
+                bg='#f8fafc'; color='#94a3b8'; border='#e2e8f0'
+              } else if (r.type==='d40') {
+                const cfg = EMPIRE_CONFIG[r.empireId]
+                desc = `${cfg?.emoji} ${cfg?.name} — D40 lancé`
+                bg='#f8fafc'; color='#64748b'; border='#e2e8f0'
               } else {
-                desc = r.extraDesc || '—'
+                desc = r.extraDesc || `Dé résolu`
               }
               return (
                 <div key={idx} style={{ fontSize:11,padding:'4px 8px',borderRadius:6,background:bg,color,border:`0.5px solid ${border}` }}>

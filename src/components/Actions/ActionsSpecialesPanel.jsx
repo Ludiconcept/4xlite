@@ -106,8 +106,8 @@ function PanelCommerce({ game, usedThisTurn, onConfirm, onClose }) {
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ fontSize:12, color:'#475569', lineHeight:1.5 }}>
         {restantes} utilisation{restantes>1?'s':''} restante{restantes>1?'s':''} ce tour.
-        {nbMarchés > 0 && utilisationsMarche < nbMarchés && (
-          <span style={{ color:'#16a34a' }}> Marché : {nbMarchés - utilisationsMarche} achat{nbMarchés-utilisationsMarche>1?'s':''} 1Or→2res restant{nbMarchés-utilisationsMarche>1?'s':''}.</span>
+        {nbMarchés > 0 && marchesUtilises < nbMarchés && (
+          <span style={{ color:'#16a34a' }}> Marché : {nbMarchés - marchesUtilises} achat{nbMarchés-marchesUtilises>1?'s':''} 1Or→2res restant{nbMarchés-marchesUtilises>1?'s':''}.</span>
         )}
       </div>
       <div style={{ display:'flex', gap:6 }}>
@@ -414,6 +414,16 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
               </div>
             </div>
           )}
+          {activeAction==='debugGuerriers' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontSize:12, color:'#dc2626', background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:6, padding:'6px 8px' }}>
+                ⚠️ Mode debug — à supprimer avant la mise en production.
+              </div>
+              <button onClick={() => handleConfirm('debugGuerriers',{})} style={{ padding:'8px 0', borderRadius:8, border:'none', background:'#dc2626', color:'white', fontSize:13, fontWeight:500, cursor:'pointer' }}>
+                🔧 +3 Guerriers
+              </button>
+            </div>
+          )}
           {activeAction==='equiper' && (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{ fontSize:12, color:'#475569', lineHeight:1.5 }}>Coût : 1 Fer par utilisation. Active les boutons +/- sur les dés. Disponible uniquement après le lancer des dés.</div>
@@ -458,6 +468,9 @@ function appliquerActionSpeciale(actionId, params, game) {
     case 'servage':
       newResources.or = (newResources.or || 0) - 3
       return { ...game, resources: newResources, activeEffects: { ...game.activeEffects, servageActif: true } }
+
+    case 'debugGuerriers':  // DEBUG — à supprimer après les tests
+      return { ...game, population: { ...game.population, guerrier: (game.population.guerrier||0) + 3 } }
 
     case 'former':
       newResources.or = (newResources.or || 0) - 1

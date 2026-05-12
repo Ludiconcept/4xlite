@@ -12,6 +12,8 @@
  *                 Chevalier ×2 Plaine/Désert sinon ×0.5
  */
 
+import { genererCase } from './exploration.js'
+
 // Coefficients de terrain par type d'unité
 export const COEFF_TERRAIN = {
   guerrier: () => 1,
@@ -136,8 +138,16 @@ export function appliquerCombat({ game, resultat, unitsUsed, targetKey, isDirect
         if (t.row !== r || t.col !== c) return t
         return {
           ...t, owner: 'player',
-          playerBuildingsPreserved: t.buildings?.filter(b => b) || [],
-          buildings: [],
+          explored: true,
+          // Générer terrain si pas encore révélé (case colonisée par empire sans exploration)
+          ...(!t.terrain ? genererCase(
+            Math.floor(Math.random()*6)+1,
+            [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1],
+            t.hasFleuve, t.isLac
+          ) : {}),
+          // Restaurer les bâtiments du joueur si la case avait été prise par un empire
+          buildings: (t.playerBuildingsPreserved?.length > 0) ? t.playerBuildingsPreserved : [],
+          playerBuildingsPreserved: [],
         }
       }))
       // Réduire puissance empire

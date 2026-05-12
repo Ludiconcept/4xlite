@@ -98,6 +98,32 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
   const bat = BATIMENTS[batimentId]
   if (!bat) return { ok: false, raison: 'Bâtiment inconnu.' }
 
+  // Vérifier case pleine EN PREMIER
+  const existing = tile.buildings || []
+  if (existing.length >= 3) {
+    // Vérifier si le bâtiment est valide pour cette case SANS le check buildings
+    // (canBuildOnTile retourne false si case pleine, donc on vérifie manuellement)
+    const tileOk = tile.explored && tile.owner === 'player' && !tile.isLac && tile.terrain !== 'lac'
+    const terrainOk = tileOk && bat.terrains.includes(tile.terrain)
+    const resOk = bat.requiresResource
+      ? [tile.resource1?.type, tile.resource2?.type].filter(Boolean).some(r => bat.requiresResource.includes(r))
+      : true
+    const coutRes = bat.cout.ressources || {}
+    const resourcesOk = Object.entries(coutRes).every(([r,q]) => (game.resources[r]||0) >= q)
+      || (bat.altCout ? Object.entries(bat.altCout).every(([r,q]) => (game.resources[r]||0) >= q) : false)
+    const popOk = Object.entries(bat.cout.population || {}).every(([t,q]) => (game.population[t]||0) >= q)
+    const maxOk = !bat.maxTotal || game.map.flat().filter(t=>t.buildings?.includes(batimentId)).length < bat.maxTotal
+    const compatOk = terrainOk && resOk && resourcesOk && popOk && maxOk
+    if (!compatOk) {
+      if (!terrainOk) return { ok:false, raison:'Non constructible sur ce terrain.', casePleine:false }
+      if (!resOk) return { ok:false, raison:'Ressource requise absente sur cette case.', casePleine:false }
+      if (!resourcesOk) return { ok:false, raison:'Ressources insuffisantes.', casePleine:false }
+      if (!popOk) return { ok:false, raison:'Population insuffisante.', casePleine:false }
+      if (!maxOk) return { ok:false, raison:'Maximum global atteint.', casePleine:false }
+    }
+    return { ok: false, raison: 'Case complète (3 bâtiments max).', casePleine: true }
+  }
+
   if (!canBuildOnTile(tile)) {
     if (tile.isLac || tile.terrain === 'lac') return { ok: false, raison: 'Construction impossible sur un Lac.' }
     return { ok: false, raison: 'Construction impossible.' }
@@ -129,10 +155,7 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
     }
   }
 
-  // Max 3 bâtiments par case — si plein, le composant proposera de remplacer
-  const existing = tile.buildings || []
-  // Si la case est pleine, on signale avec un flag spécial (pas un refus)
-  if (existing.length >= 3) return { ok: false, raison: 'Case complète (3 bâtiments max).', casePleine: true }
+  // (casePleine déjà vérifié en haut de la fonction)
 
   const countSame = existing.filter(b => b === batimentId).length
   if (countSame >= (bat.maxParCase || 1)) {

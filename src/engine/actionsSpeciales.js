@@ -82,6 +82,13 @@ export const ACTIONS_SPECIALES = {
     maxParTour: 1,
     requiresBuilding: 'palais',
   },
+  // ── DEBUG — à supprimer après les tests ──────────────────────────────────
+  debugGuerriers: {
+    id: 'debugGuerriers', name: '[DEBUG] +3 Guerriers', emoji: '🔧',
+    description: 'DEBUG : Ajoute 3 guerriers gratuitement.',
+    cout: {},
+    maxParTour: 99, // illimité
+  },
 }
 
 /**
@@ -146,6 +153,9 @@ export function peutUtiliserAction(actionId, game, usedThisTurn = {}) {
     if ((game.population[type] || 0) < qte)
       return { ok: false, raison: `Population insuffisante (manque ${qte} ${type}).` }
   }
+
+  // DEBUG : toujours autorisé
+  if (actionId === 'debugGuerriers') return { ok: true, raison: null }
 
   return { ok: true, raison: null }
 }

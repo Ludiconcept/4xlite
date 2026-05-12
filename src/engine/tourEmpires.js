@@ -41,6 +41,11 @@ export function resoudreDe(valeur, game, d40Value=null) {
 
 function resoudrePuissance(empireId, game) {
   const emp    = game.empires?.[empireId] || { power:2, maxPower:8 }
+  // Si maxPower = 0, la puissance ne peut pas augmenter
+  if ((emp.maxPower||0) <= 0) {
+    const cfg = EMPIRE_CONFIG[empireId]
+    return { type:'puissance', empireId, description:`${cfg.emoji} ${cfg.name} : Puissance bloquée (max 0)`, newGame:game, defaite:false }
+  }
   const newPow = Math.min(emp.maxPower||8, (emp.power||0)+2)
   const cfg    = EMPIRE_CONFIG[empireId]
   const newGame = { ...game, empires:{ ...game.empires, [empireId]:{ ...emp, power:newPow } } }
@@ -104,7 +109,12 @@ function resoudreD40Action(game, d40Value) {
     }
   } else {
     const newMap = game.map.map(r=>r.map(t=>
-      t.row===caseCible.row&&t.col===caseCible.col ? {...t,owner:String(empireId),explored:true} : t
+      t.row===caseCible.row&&t.col===caseCible.col ? {
+        ...t, owner:String(empireId), explored:true,
+        // Préserver les bâtiments du joueur si applicable
+        playerBuildingsPreserved: t.owner==='player' ? (t.buildings||[]) : (t.playerBuildingsPreserved||[]),
+        buildings: t.owner==='player' ? [] : (t.buildings||[]),
+      } : t
     ))
     return {
       type:'d40', empireId, d40:d40Value, action:'colonisation',
@@ -130,20 +140,30 @@ export function resoudreCombatEmpireVsJoueur(empireId, tile, game, guerriersJoue
   const emp  = game.empires?.[empireId] || { power:2, maxPower:8 }
   const de1  = Math.floor(Math.random()*6)+1
   const de2  = Math.floor(Math.random()*6)+1
-  const scoreDef = de1 + guerriersJoueur
+  // Bonus défensif de la case (Tour de guet, Forteresse)
+  const buildings = tile?.buildings || []
+  const bonusDef = (buildings.includes('tourDeGuet') ? 1 : 0) + (buildings.includes('forteresse') ? 3 : 0)
+  const scoreDef = de1 + guerriersJoueur + bonusDef
   const scoreAtt = de2 + (emp.power||2)
   const empireGagne = scoreAtt > scoreDef
   const pertesJoueur = Math.min(Math.ceil(scoreAtt/2), guerriersJoueur)
+  // Réduction bâtiments défensifs si victoire : exposée séparément pour affichage et confirmation
+  const reductionTourDeGuet = (!empireGagne && buildings.includes('tourDeGuet')) ? 1 : 0
+  const reductionForteresse = (!empireGagne && buildings.includes('forteresse')) ? 1 : 0
   const pertesEmpire = Math.ceil(scoreDef/2)
   let newGame = {...game}
   if (empireGagne) {
     newGame.map = game.map.map(r=>r.map(t=>
-      t.row===tile.row&&t.col===tile.col ? {...t,owner:String(empireId)} : t
+      t.row===tile.row&&t.col===tile.col ? {
+        ...t, owner:String(empireId),
+        playerBuildingsPreserved: t.owner==='player' ? (t.buildings||[]) : (t.playerBuildingsPreserved||[]),
+        buildings: t.owner==='player' ? [] : (t.buildings||[]),
+      } : t
     ))
   }
   newGame.population = {...game.population, guerrier:Math.max(0,(game.population.guerrier||0)-pertesJoueur)}
   newGame.empires = {...newGame.empires, [empireId]:{...emp, power:Math.max(0,emp.power-pertesEmpire)}}
-  return { empireGagne, scoreAtt, scoreDef, de1, de2, pertesJoueur, pertesEmpire, newGame }
+  return { empireGagne, scoreAtt, scoreDef, de1, de2, pertesJoueur, pertesEmpire, bonusDef, reductionTourDeGuet, reductionForteresse, newGame }
 }
 
 export function resoudreCombatEmpireVsEmpire(attackerId, defenderId, tile, game) {

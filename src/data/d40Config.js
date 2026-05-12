@@ -8,14 +8,15 @@
  * - Kharzun  (3) : bords bas des 5 colonnes    → avance bas→haut
  *
  * 4 profils distribués aléatoirement entre les 4 empires au setup :
- * A: 1×5=5, B: 1+1+2+2+2=8, C: 2×5=10, D: 3+3+3+4+4=17 → total 40
+ * A: 1×5=5, B: 2+2+2+1+1=8, C: 2+2+2+3+3=12, D: 3×5=15 → total 40
  */
 
+// Nouveaux profils : 5+8+12+15 = 40 faces
 const PROFILS = [
-  { id:'A', faces:[1,1,1,1,1] },
-  { id:'B', facesL:[1,1,2,2,2], facesR:[2,2,2,1,1] },
-  { id:'C', faces:[2,2,2,2,2] },
-  { id:'D', facesL:[3,3,3,4,4], facesR:[4,4,3,3,3] },
+  { id:'A', faces:[1,1,1,1,1] },              // total 5
+  { id:'B', facesL:[2,2,2,1,1], facesR:[1,1,2,2,2] }, // total 8
+  { id:'C', facesL:[2,2,2,3,3], facesR:[3,3,2,2,2] }, // total 12
+  { id:'D', faces:[3,3,3,3,3] },              // total 15
 ]
 
 // Bords fixes par empire : { empireId, row, col, direction }
