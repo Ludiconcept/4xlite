@@ -1,3 +1,4 @@
+import { EMPIRE_CONFIG } from '../../data/empireConfig.js'
 import { useState } from 'react'
 import { useGameStore } from '../../store/gameStore.js'
 import { useLogStore } from '../../store/logStore.js'
@@ -316,6 +317,7 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
     const action = ACTIONS_SPECIALES[actionId]
     addEntry(`Action spéciale : ${action.emoji} ${action.name}`, game.turn)
     if (actionId === 'armer') { setArmerActive(true); setActive(null); return }
+    if (actionId === 'tribut') return  // rester ouvert pour pouvoir activer d'autres tributs
     setActive(null)
   }
 
@@ -414,6 +416,41 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
               </div>
             </div>
           )}
+          {activeAction==='tribut' && (() => {
+            const tributActifs = game.activeEffects?.tributActifs || {}
+            // Trouver les empires avec ambassade
+            const empiresAvecAmbassade = [1,2,3,4].filter(id =>
+              game.map.flat().some(t => t.owner==='player' && t.buildings?.includes('ambassade') && Number(t.ambassadeEmpire) === id)
+            )
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ fontSize:12, color:'#64748b', lineHeight:1.4 }}>
+                  Choisissez l'empire à qui verser un tribut (3 Or). Sa prochaine attaque sera annulée.
+                </div>
+                {empiresAvecAmbassade.length === 0
+                  ? <div style={{ fontSize:11, color:'#ef4444' }}>Aucune Ambassade construite.</div>
+                  : empiresAvecAmbassade.map(id => {
+                    const cfg = EMPIRE_CONFIG[id]
+                    const actif = tributActifs[id]
+                    return (
+                      <button key={id} onClick={() => handleConfirm('tribut', { empireId: id })}
+                        disabled={actif || (game.resources?.or||0) < 3}
+                        style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:8,
+                          border:`1.5px solid ${actif?'#16a34a':'#e2e8f0'}`,
+                          background:actif?'#f0fdf4':'white', cursor:actif?'default':'pointer',
+                          opacity:(game.resources?.or||0)<3&&!actif?0.4:1 }}>
+                        <span style={{ fontSize:18 }}>{cfg.emoji}</span>
+                        <span style={{ fontSize:12, fontWeight:500, color:actif?'#166534':'#1e293b', flex:1 }}>{cfg.name}</span>
+                        {actif
+                          ? <span style={{ fontSize:11, color:'#16a34a' }}>✓ Tribut actif</span>
+                          : <span style={{ fontSize:11, color:'#64748b' }}>-3 🪙</span>}
+                      </button>
+                    )
+                  })
+                }
+              </div>
+            )
+          })()}
           {activeAction==='debugGuerriers' && (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{ fontSize:12, color:'#dc2626', background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:6, padding:'6px 8px' }}>
@@ -468,6 +505,14 @@ function appliquerActionSpeciale(actionId, params, game) {
     case 'servage':
       newResources.or = (newResources.or || 0) - 3
       return { ...game, resources: newResources, activeEffects: { ...game.activeEffects, servageActif: true } }
+
+    case 'tribut': {
+      const empId = params?.empireId
+      if (!empId) return game
+      newResources.or = Math.max(0, (newResources.or||0) - 3)
+      const tributActifs = { ...(game.activeEffects?.tributActifs||{}), [empId]: true }
+      return { ...game, resources: newResources, activeEffects: { ...game.activeEffects, tributActifs } }
+    }
 
     case 'debugGuerriers':  // DEBUG — à supprimer après les tests
       return { ...game, population: { ...game.population, guerrier: (game.population.guerrier||0) + 3 } }

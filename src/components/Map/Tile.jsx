@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { EMPIRE_CONFIG } from '../../data/empireConfig.js'
+import { BATIMENTS } from '../../engine/construction.js'
 import { ResourceIcon } from '../UI/ResourceIcons.jsx'
 
 // ── Constantes ────────────────────────────────────────────────
@@ -31,7 +32,9 @@ const RESOURCE_ICONS_EMOJI = { foret:'🌲', gibier:'🦌' }
 const BUILDING_ICONS = {
   ferme:'🏠', mine:'⛏️', scierie:'🪚', tourDeGuet:'🗼', forteresse:'🏰',
   palais:'👑', marche:'🏪', hopital:'🏥', universite:'🎓', ambassade:'🤝',
-  entrepot:'📦', palaisMerveillesCorps:'✨', palaisMerveillesGauche:'✨', palaismerveilles_droite:'✨',
+  entrepot:'📦',
+  cabane:'🛖',
+  immeuble:'🏢', palaisMerveillesCorps:'✨', palaisMerveillesGauche:'✨', palaismerveilles_droite:'✨',
 }
 const BUILDING_NAMES = {
   ferme:'Ferme', mine:'Mine', scierie:'Scierie', tourDeGuet:'Tour de guet',
@@ -41,21 +44,15 @@ const BUILDING_NAMES = {
   palaisMerveillesGauche:'Palais des Merveilles — Aile gauche',
   palaismerveilles_droite:'Palais des Merveilles — Aile droite',
 }
-const BUILDING_EFFECTS = {
-  ferme:'Produit 1 Nourriture. +3 capacité pop. max. Gratuit en Plaine, coûte 1 Bois/Fer/Argile en Colline.',
-  mine:'Chaque ressource Fer/Argile/Or sur la case produit +1.',
-  scierie:'Chaque ressource Bois sur la case produit +1.',
-  tourDeGuet:'+1 guerrier défensif. -1 perte si victoire en défense.',
-  forteresse:'+3 guerriers défensifs. -1 perte si victoire en défense.',
-  palais:'+5 Or par 5 cases (récolte, arrondi inf.). 1 max. Débloque Servage.',
-  marche:'Commerce amélioré : 1 Or = 2 ressources.',
-  hopital:'Débloque l\'action Soigner.',
-  universite:'Débloque l\'action Former.',
-  ambassade:'Débloque l\'action Diplomatie contre cet empire.',
-  entrepot:'+4 emplacements de stockage.',
+// BUILDING_EFFECTS : source unique = BATIMENTS[id].description
+// Quelques cas spéciaux non dans construction.js
+const BUILDING_EFFECTS_EXTRA = {
   palaisMerveillesCorps:'3 dés d\'action au lieu de 4.',
   palaisMerveillesGauche:'Gibier réservé aux Nobles. Conversion G/P/A → Nobles gratuite.',
   palaismerveilles_droite:'+1 Noble gratuit par tour.',
+}
+function getBuildingEffect(b) {
+  return BATIMENTS[b]?.description || BUILDING_EFFECTS_EXTRA[b] || ''
 }
 
 // ── CSS d'animation pour les cases valides ────────────────────
@@ -149,15 +146,15 @@ function FullTooltip({ tile, onClose }) {
   const posAbove = tile.row >= 2
   return (
     <div ref={ref} style={{
-      position:'absolute',
+      position:'fixed',
       ...(posAbove
-        ? { bottom:'calc(100% + 8px)' }
-        : { top:'calc(100% + 8px)' }),
+        ? { bottom:'calc(50% + 10px)' }
+        : { top:'calc(50% + 10px)' }),
       left:'50%', transform:'translateX(-50%)',
-      width:230, zIndex:1000,
+      width:260, zIndex:2000,
       background:'white', border:'0.5px solid #e2e8f0',
       borderRadius:10, overflow:'hidden',
-      boxShadow:'0 4px 20px rgba(0,0,0,.15)',
+      boxShadow:'0 4px 24px rgba(0,0,0,.22)',
       pointerEvents:'auto',
     }}>
       {/* Header */}
@@ -216,8 +213,15 @@ function FullTooltip({ tile, onClose }) {
                   <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:7 }}>
                     <span style={{ fontSize:14 }}>{BUILDING_ICONS[b]||'🏗️'}</span>
                     <div>
-                      <div style={{ fontSize:11, fontWeight:500, color:'#1e293b' }}>{BUILDING_NAMES[b]||b}</div>
-                      <div style={{ fontSize:10, color:'#64748b', lineHeight:1.4 }}>{BUILDING_EFFECTS[b]||''}</div>
+                      <div style={{ fontSize:11, fontWeight:500, color:'#1e293b' }}>
+                        {BUILDING_NAMES[b]||b}
+                        {b==='ambassade' && tile.ambassadeEmpire && EMPIRE_CONFIG[tile.ambassadeEmpire] && (
+                          <span style={{ marginLeft:5, fontSize:10, color:EMPIRE_CONFIG[tile.ambassadeEmpire].colorText }}>
+                            {EMPIRE_CONFIG[tile.ambassadeEmpire].emoji} {EMPIRE_CONFIG[tile.ambassadeEmpire].name}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize:10, color:'#64748b', lineHeight:1.4 }}>{getBuildingEffect(b)}</div>
                     </div>
                   </div>
                 ))}

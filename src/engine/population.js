@@ -3,8 +3,7 @@
  * Gestion des plafonds, surpopulation, famine
  */
 
-export const POP_PER_TILE = 5
-export const POP_PER_FARM = 3
+export const POP_PER_TILE = 3
 export const STORAGE_BASE = 8
 export const STORAGE_PER_ENTREPOT = 4
 
@@ -18,11 +17,17 @@ export const ALL_POP_TYPES = [...FAMINE_ORDER, ...FAMINE_PROTECTED]
  * Calcule le plafond de population.
  */
 export function calcPopMax(map) {
-  const playerTiles = map.flat().filter(t => t.owner === 'player').length
-  const farms = map.flat()
-    .filter(t => t.owner === 'player')
-    .reduce((s, t) => s + (t.buildings?.filter(b => b === 'ferme').length || 0), 0)
-  return playerTiles * POP_PER_TILE + farms * POP_PER_FARM
+  const playerTiles = map.flat().filter(t => t.owner === 'player')
+  const nbTiles = playerTiles.length
+  let bonusBatiments = 0
+  for (const tile of playerTiles) {
+    for (const b of (tile.buildings || [])) {
+      if (b === 'cabane')   bonusBatiments += 3   // +1 général + 2 propre
+      else if (b === 'immeuble') bonusBatiments += 6 // +1 général + 5 propre
+      else bonusBatiments += 1                      // +1 général
+    }
+  }
+  return nbTiles * POP_PER_TILE + bonusBatiments
 }
 
 /**

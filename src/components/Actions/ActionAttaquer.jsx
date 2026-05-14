@@ -102,8 +102,11 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
     if (soignerUsed) {
       gameApresArmer.resources = { ...gameApresArmer.resources, nourriture: Math.max(0, (gameApresArmer.resources.nourriture||0) - 1) }
     }
-    const detail  = target.type === 'case' ? `vs ${empCfg?.name} (${target.tile.col+1},${target.tile.row+1})` : `attaque directe vs ${empCfg?.name}`
-    addEntry(`Combat ${outcome} — ${detail} — Pertes : ${Math.min(result.pertesAttaquant, totalMob)} guerrier(s)`, game.turn)
+    const detail  = target.type === 'case' ? `vs ${empCfg?.emoji||''} ${empCfg?.name} (${target.tile.col+1},${target.tile.row+1})` : `Attaque directe vs ${empCfg?.emoji||''} ${empCfg?.name}`
+    const pertesJ = Math.min(resultAvecBonus.pertesAttaquant, totalMob)
+    const pertesE = resultAvecBonus.pertesDefenseur
+    const bonusStr = [armerActif&&'Armer', soignerUsed&&'Soigner'].filter(Boolean).join('+')
+    addEntry(`⚔️ ${outcome} — ${detail} | Dés: ${result.de1} vs ${result.de2} | Pertes joueur: ${pertesJ} guerrier(s)${bonusStr?' ('+bonusStr+')':''} | Pertes empire: -${pertesE} Puissance`, game.turn)
     onMarkUsed?.(); onClose()
   }
 

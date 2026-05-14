@@ -82,6 +82,12 @@ export const ACTIONS_SPECIALES = {
     maxParTour: 1,
     requiresBuilding: 'palais',
   },
+  tribut: {
+    id: 'tribut', name: 'Tribut', emoji: '💰',
+    description: 'Versez 3 Or à un empire (Ambassade requise) pour annuler sa prochaine attaque.',
+    cout: { or: 3 },
+    maxParTour: 99, // illimité — limité par le nb d'ambassades
+  },
   // ── DEBUG — à supprimer après les tests ──────────────────────────────────
   debugGuerriers: {
     id: 'debugGuerriers', name: '[DEBUG] +3 Guerriers', emoji: '🔧',

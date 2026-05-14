@@ -7,7 +7,7 @@ import { canBuildOnTile } from './tileRules.js'
 export const BATIMENTS = {
   ferme: {
     id: 'ferme', name: 'Ferme', emoji: '🏠',
-    description: 'Produit 1 Nourriture. +3 capacité pop. max. Gratuit en Plaine, coûte 1 Bois/Fer/Argile en Colline.',
+    description: 'Produit 1 Nourriture. Gratuit en Plaine, coûte 1 Bois/Fer/Argile en Colline.',
     // Terrain : plaine gratuit, colline coûte 1 Bois/Fer/Argile au choix, montagne non constructible de base
     terrains: ['plaine', 'colline'],
     cout: { ressources: {}, population: {} },
@@ -35,14 +35,14 @@ export const BATIMENTS = {
   },
   tourDeGuet: {
     id: 'tourDeGuet', name: 'Tour de guet', emoji: '🗼',
-    description: '+1 guerrier défensif. -1 perte si victoire en défense.',
+    description: '+2 guerriers défensifs. -1 perte si victoire en défense.',
     terrains: ['marais','plaine','desert','colline','montagne'],
     cout: { ressources: { bois: 3 }, population: { guerrier: 1 } },
     maxParCase: 1,
   },
   forteresse: {
     id: 'forteresse', name: 'Forteresse', emoji: '🏰',
-    description: '+3 guerriers défensifs. -1 perte si victoire en défense.',
+    description: '+5 guerriers défensifs. -2 pertes si victoire en défense.',
     terrains: ['marais','plaine','desert','colline','montagne'],
     cout: { ressources: { bois: 3, argile: 5, fer: 2 }, population: { guerrier: 2 } },
     maxParCase: 1,
@@ -77,7 +77,7 @@ export const BATIMENTS = {
   },
   ambassade: {
     id: 'ambassade', name: 'Ambassade', emoji: '🤝',
-    description: 'Attribuée à 1 empire. Débloque Diplomatie contre cet empire. Max 4.',
+    description: 'Attribuée à 1 empire. Débloque Tribut contre cet empire. Max 4.',
     terrains: ['marais','plaine','desert','colline','montagne'],
     cout: { ressources: { bois: 3, argile: 3, fer: 3, or: 3 }, population: { guerrier: 1, noble: 1 } },
     maxParCase: 1, maxTotal: 4,
@@ -85,11 +85,23 @@ export const BATIMENTS = {
   },
   entrepot: {
     id: 'entrepot', name: 'Entrepôt', emoji: '📦',
-    description: '+4 emplacements de stockage. Coût : 2 Bois OU 2 Argile.',
+    description: '+4 emplacements de stockage.',
     terrains: ['marais','plaine','desert','colline','montagne'],
     cout: { ressources: { bois: 2 }, population: {} },
     altCout: { argile: 2 },
     maxParCase: 1,
+  },
+  cabane: {
+    id: 'cabane', name: 'Cabane', emoji: '🛖',
+    description: '+2 capacité de population (+1 comme tout bâtiment, +2 propre = +3 total).',
+    terrains: ['marais','plaine','desert','colline','montagne'],
+    cout: { ressources: { bois: 1 }, population: {} },
+  },
+  immeuble: {
+    id: 'immeuble', name: 'Immeuble', emoji: '🏢',
+    description: '+5 capacité de population (+1 comme tout bâtiment, +5 propre = +6 total).',
+    terrains: ['marais','plaine','desert','colline','montagne'],
+    cout: { ressources: { bois: 1, argile: 3 }, population: {} },
   },
 }
 

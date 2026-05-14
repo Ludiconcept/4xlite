@@ -58,7 +58,7 @@ function AnimDieCombat({ finalValue, rolling, color = '#1e293b' }) {
   )
 }
 
-function CombatPopup({ empireId, targetCase, game, onConfirm }) {
+function CombatPopup({ empireId, targetCase, game, onConfirm, tributMode=false }) {
   const [guerriers,    setGuerriers]    = useState(0)
   const [soignerUsed,  setSoignerUsed]  = useState(false)
   const [phase,        setPhase]        = useState('prepare') // prepare | rolling | result
@@ -296,12 +296,14 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
   const [desValues, setDesValues] = useState([null,null,null,null])
   const [activeIdx, setActiveIdx] = useState(-1)
   const [resultats, setResultats] = useState([])
+  const resultatsRef = useRef([])
   const [phase, setPhase]         = useState('rolling')
   const [pendingCombat, setPendingCombat] = useState(null)
   const [pendingEvent, setPendingEvent]   = useState(null)
   // gameState courant stocké dans un ref — JAMAIS dans le state React
   const gsRef = useRef(gameRef.current)
   const startedRef = useRef(false)
+  const valsRef    = useRef([])
 
   useEffect(() => {
     if (startedRef.current) return  // Empêche le double déclenchement (React StrictMode)
@@ -313,14 +315,14 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
       setRolling(false)
       // Ordre de tirage : gauche→droite (pas trié par valeur)
       const ordre = vals.map((v,i)=>({v,i}))
-      setTimeout(() => runResolution(ordre, 0), 600)
+      setTimeout(() => runResolution(ordre, 0, vals), 600)
     }, 800)
   }, []) // eslint-disable-line
 
   // Toute la logique de résolution utilise gsRef.current — jamais de closure React
-  async function runResolution(ordre, idx) {
+  async function runResolution(ordre, idx, vals) {
     if (idx >= ordre.length) {
-      finalize()
+      finalize(vals)
       return
     }
     setPhase('resolving')
@@ -344,8 +346,18 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
       if (res.action !== 'attaque' || !res.isPlayerCase) onHighlightCase?.(null)
     }
 
-    // Combat joueur
+    // Combat joueur — vérifier d'abord le tribut
     if (res.action === 'attaque' && res.isPlayerCase) {
+      const tributActifs = gsRef.current.activeEffects?.tributActifs || {}
+      if (tributActifs[res.empireId]) {
+        // Tribut actif — annuler l'attaque, afficher popup informatif
+        const newTribut = { ...tributActifs }
+        delete newTribut[res.empireId]
+        gsRef.current = { ...gsRef.current, activeEffects: { ...gsRef.current.activeEffects, tributActifs: newTribut } }
+        setPendingCombat({ res, ordre, nextIdx: idx+1, tributMode: true })
+        setPhase('waitingCombat')
+        return
+      }
       setPendingCombat({ res, ordre, nextIdx: idx+1 })
       setPhase('waitingCombat')
       return
@@ -360,7 +372,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
       addLog({ ...res, extraDesc: combatRes.description }, i)
       onHighlightCase?.(null)
       await pause(600)
-      await runResolution(ordre, idx+1)
+      await runResolution(ordre, idx+1, vals)
       return
     }
 
@@ -377,8 +389,8 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
       gsRef.current = applyImmediate(res.evenement, gsRef.current)
     }
 
-    // Mettre à jour la carte immédiatement pour colonisation/attaque
-    if (res.type === 'd40') {
+    // Mettre à jour la carte immédiatement pour colonisation seulement (pas attaque — owner reste stable)
+    if (res.type === 'd40' && res.action === 'colonisation') {
       updateGame(() => ({ ...gsRef.current }))
     }
 
@@ -394,18 +406,20 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
     }
 
     await pause(500)
-    await runResolution(ordre, idx+1)
+    await runResolution(ordre, idx+1, vals)
   }
 
   function addLog(res, dieOrigIdx = null) {
-    setResultats(prev => [...prev, {
+    const entry = {
       type: res.type,
       action: res.action,
       empireId: res.empireId,
       evenementTitre: res.evenement?.titre,
       extraDesc: res.extraDesc,
-      dieOrigIdx,  // index original du dé (0-3) pour tri
-    }])
+      dieOrigIdx,
+    }
+    resultatsRef.current = [...resultatsRef.current, entry]
+    setResultats(resultatsRef.current)
   }
 
   function applyImmediate(evt, g) {
@@ -425,13 +439,27 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
   }
 
   function handleCombatConfirm(combatResult) {
+    if (combatResult === null) {
+      // Tribut — pas de combat
+      updateGame(() => ({ ...gsRef.current }))
+      const { ordre, nextIdx } = pendingCombat
+      setPendingCombat(null)
+      setPhase('resolving')
+      runResolution(ordre, nextIdx, valsRef.current)
+      return
+    }
     gsRef.current = combatResult.newGame
     onHighlightCase?.(null)
     const { ordre, nextIdx } = pendingCombat
+    const empId = pendingCombat.res.empireId
+    const cfg = EMPIRE_CONFIG[empId]
+    const outcome = combatResult.empireGagne ? '✗ Défaite' : '✓ Victoire'
+    const tc = pendingCombat.res.targetCase
+    addEntry(`⚔️ Défense ${outcome} — ${cfg?.emoji||''} ${cfg?.name} attaque (${tc?.col+1},${tc?.row+1}) | Dés: ${combatResult.de1} vs ${combatResult.de2} | Pertes joueur: ${combatResult.pertesJoueur} guerrier(s) | Pertes empire: -${combatResult.pertesEmpire} Puissance`, gsRef.current.turn)
     setPendingCombat(null)
     setPhase('resolving')
-    addLog({ type:'combat', action: combatResult.empireGagne?'attaque':'defense', empireId: pendingCombat.res.empireId }, pendingCombat.res.dieOrigIdx)
-    runResolution(ordre, nextIdx)
+    addLog({ type:'combat', action: combatResult.empireGagne?'attaque':'defense', empireId: empId }, pendingCombat?.res.dieOrigIdx)
+    runResolution(ordre, nextIdx, valsRef.current)
   }
 
   function handleEventConfirm(newGame) {
@@ -439,16 +467,27 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
     const { ordre, nextIdx } = pendingEvent
     setPendingEvent(null)
     setPhase('resolving')
-    runResolution(ordre, nextIdx)
+    runResolution(ordre, nextIdx, valsRef.current)
   }
 
-  function finalize() {
+  function finalize(vals=[]) {
     setPhase('done')
     setActiveIdx(-1)
     onHighlightCase?.(null)
     const final = appliquerEffetsNextTurn(gsRef.current)
     updateGame(() => final)
-    addEntry(`Tour des empires — ${desValues.join(', ')}`, gsRef.current.turn)
+    // Journal détaillé du tour des empires
+    const lines = resultatsRef.current.map(r => {
+      const cfg = r.empireId ? (EMPIRE_CONFIG[r.empireId] || {}) : {}
+      if (r.type === 'puissance') return `${cfg.emoji||''} ${cfg.name||''} : +2 Puissance`
+      if (r.type === 'evenement') return `📋 Événement : ${r.evenementTitre || ''}`
+      if (r.action === 'colonisation') return `${cfg.emoji||''} ${cfg.name||''} — Colonisation`
+      if (r.action === 'attaque' || r.action === 'attaque_gagnee') return `${cfg.emoji||''} ${cfg.name||''} — Attaque${r.extraDesc ? ' → ' + r.extraDesc : ''}`
+      if (r.action === 'defense') return `🛡️ Défense réussie`
+      if (r.action === 'impossible') return `${cfg.emoji||''} ${cfg.name||''} — Ligne complète`
+      return `${cfg.emoji||''} ${cfg.name||''} — D40`
+    })
+    addEntry(`Tour des empires [${(vals||desValues).filter(Boolean).join(', ')}] : ${lines.join(' | ')}`, gsRef.current.turn)
   }
 
   const empireColors = {1:'#e1071a',2:'#0891b2',3:'#166534',4:'#ca8a04'}
@@ -550,6 +589,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase }) {
         <CombatPopup
           empireId={pendingCombat.res.empireId}
           targetCase={pendingCombat.res.targetCase}
+          tributMode={pendingCombat.tributMode || false}
           game={gsRef.current}
           onConfirm={handleCombatConfirm}
         />

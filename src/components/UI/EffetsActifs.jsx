@@ -1,4 +1,5 @@
 import { useGameStore } from '../../store/gameStore.js'
+import { EMPIRE_CONFIG } from '../../data/empireConfig.js'
 
 const EFFETS = {
   armerActif:   { emoji:'🗡️', label:'Armer',   desc:'-1 perte au prochain combat' },
@@ -63,6 +64,18 @@ export function EffetsActifs() {
             updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, [key]: false } }))
           } />
         ))}
+        {/* Tributs actifs — un badge par empire */}
+        {Object.entries(game.activeEffects?.tributActifs || {}).filter(([,v])=>v).map(([empId]) => {
+          const cfg = EMPIRE_CONFIG[empId]
+          if (!cfg) return null
+          return (
+            <Badge key={`tribut-${empId}`}
+              emoji={cfg.emoji}
+              label={`Tribut — ${cfg.name}`}
+              desc="Prochaine attaque de cet empire annulée"
+            />
+          )
+        })}
       </div>
     </>
   )

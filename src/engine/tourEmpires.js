@@ -142,14 +142,14 @@ export function resoudreCombatEmpireVsJoueur(empireId, tile, game, guerriersJoue
   const de2  = Math.floor(Math.random()*6)+1
   // Bonus défensif de la case (Tour de guet, Forteresse)
   const buildings = tile?.buildings || []
-  const bonusDef = (buildings.includes('tourDeGuet') ? 1 : 0) + (buildings.includes('forteresse') ? 3 : 0)
+  const bonusDef = (buildings.includes('tourDeGuet') ? 2 : 0) + (buildings.includes('forteresse') ? 5 : 0)
   const scoreDef = de1 + guerriersJoueur + bonusDef
   const scoreAtt = de2 + (emp.power||2)
   const empireGagne = scoreAtt > scoreDef
   const pertesJoueur = Math.min(Math.ceil(scoreAtt/2), guerriersJoueur)
   // Réduction bâtiments défensifs si victoire : exposée séparément pour affichage et confirmation
   const reductionTourDeGuet = (!empireGagne && buildings.includes('tourDeGuet')) ? 1 : 0
-  const reductionForteresse = (!empireGagne && buildings.includes('forteresse')) ? 1 : 0
+  const reductionForteresse = (!empireGagne && buildings.includes('forteresse')) ? 2 : 0
   const pertesEmpire = Math.ceil(scoreDef/2)
   let newGame = {...game}
   if (empireGagne) {

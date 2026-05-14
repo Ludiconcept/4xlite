@@ -10,7 +10,7 @@ const POP_TYPES = [
   { key:'noble',    label:'Noble',    color:'#0369a1', role:'Innovations Guerre & Admin.' },
 ]
 
-const POP_PER_TILE = 5
+const POP_PER_TILE = 3
 const POP_PER_FARM = 3
 
 export function PopulationPanel() {
@@ -20,11 +20,17 @@ export function PopulationPanel() {
   if (!game) return null
 
   const { population, map } = game
-  const playerTiles = map?.flat().filter(t => t.owner === 'player').length ?? 0
-  const farms = map?.flat()
-    .filter(t => t.owner === 'player' && t.buildings?.includes('ferme'))
-    .reduce((sum, t) => sum + t.buildings.filter(b => b === 'ferme').length, 0) ?? 0
-  const popMax = playerTiles * POP_PER_TILE + farms * POP_PER_FARM
+  const playerTilesArr = map?.flat().filter(t => t.owner === 'player') ?? []
+  const playerTiles = playerTilesArr.length
+  let bonusBatiments = 0
+  for (const tile of playerTilesArr) {
+    for (const b of (tile.buildings || [])) {
+      if (b === 'cabane') bonusBatiments += 3
+      else if (b === 'immeuble') bonusBatiments += 6
+      else bonusBatiments += 1
+    }
+  }
+  const popMax = playerTiles * POP_PER_TILE + bonusBatiments
   const popTotal = Object.values(population).reduce((a, b) => a + b, 0)
   const isOvercrowded = popTotal > popMax && popMax > 0
 
@@ -84,8 +90,8 @@ export function PopulationPanel() {
                 boxShadow:'0 4px 12px rgba(0,0,0,.2)',
               }}>
                 <div style={{ fontWeight:500, marginBottom:3 }}>Calcul de la capacité max</div>
-                <div>Cases contrôlées × {POP_PER_TILE} = {playerTiles} × {POP_PER_TILE} = {playerTiles * POP_PER_TILE}</div>
-                <div>Fermes construites × {POP_PER_FARM} = {farms} × {POP_PER_FARM} = {farms * POP_PER_FARM}</div>
+                <div>Cases × 3 = {playerTiles * 3}</div>
+                <div>Bâtiments × 1 (Cabane +3, Immeuble +6) = {bonusBatiments}</div>
                 <div style={{ borderTop:'0.5px solid rgba(255,255,255,.2)', marginTop:4, paddingTop:4, fontWeight:500 }}>
                   Total max : {popMax}
                 </div>

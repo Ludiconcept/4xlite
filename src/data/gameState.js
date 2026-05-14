@@ -102,6 +102,7 @@ export function createInitialGameState() {
       armerActif:           false, // -1 perte au prochain combat
       servageActif:         false, // 3 dés au lieu de 2 au prochain lancer
       equiperActif:         false, // mode +/- sur les dés actif
+      tributActifs:         {},    // { empireId: true } — empires sous tribut
     },
 
     // ── Piste des événements ──────────────────────────────────

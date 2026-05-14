@@ -43,8 +43,8 @@ export function getBonusDefensif(tile) {
   if (!tile || !tile.owner) return 0
   const buildings = tile.buildings || []
   let bonus = 0
-  if (buildings.includes('tourDeGuet')) bonus += 1
-  if (buildings.includes('forteresse')) bonus += 3
+  if (buildings.includes('tourDeGuet')) bonus += 2
+  if (buildings.includes('forteresse')) bonus += 5
   if (buildings.includes('palais'))     bonus += 3 // Architecture royale
   return bonus
 }

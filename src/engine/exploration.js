@@ -17,13 +17,13 @@ export const TERRAIN_FROM_DIE = {
 
 // Tableau 2 dés additionnés → ressource (page 9 PDF)
 export const RESOURCE_FROM_2DICE = {
-  2:  { type: 'foret',  bonus: 'gibier', terrains: ['colline','montagne'] },
-  3:  { type: 'foret',  bonus: 'gibier', terrains: ['colline','montagne'] },
-  4:  { type: 'foret',  bonus: 'gibier', terrains: ['colline','montagne'] },
+  2:  { type: 'foret',  bonus: 'gibier', terrains: ['plaine','colline','montagne'] },
+  3:  { type: 'foret',  bonus: 'gibier', terrains: ['plaine','colline','montagne'] },
+  4:  { type: 'foret',  bonus: 'gibier', terrains: ['plaine','colline','montagne'] },
   5:  { type: 'foret',  bonus: null,     terrains: ['plaine','colline','montagne'] },
   6:  { type: 'gibier', bonus: null,     terrains: ['marais','fleuve','lac'] },
   7:  { type: 'argile', bonus: null,     terrains: ['marais','plaine','desert'] },
-  8:  { type: 'or',     bonus: null,     terrains: ['colline','montagne','desert','fleuve'] },
+  8:  { type: 'or',     bonus: null,     terrains: ['colline','montagne','desert'] },
   9:  { type: null,     bonus: null,     terrains: [] },
   10: { type: 'fer',    bonus: null,     terrains: ['colline','montagne','desert'] },
   11: { type: 'fer',    bonus: null,     terrains: ['colline','montagne','desert'] },
@@ -43,8 +43,9 @@ export function getCasesExplorables(map) {
         map[r-1]?.[c], map[r+1]?.[c],
         map[r]?.[c-1], map[r]?.[c+1],
       ]
-      // Seules les cases adjacentes à une case EXPLORÉE PAR LE JOUEUR sont explorables
-      if (voisins.some(v => v?.explored && v?.owner === 'player')) result.push(tile)
+      // Explorable si adjacente à une case explored=true ET owner != empire (null ou 'player')
+      const ownIsEmpire = v => v?.owner && v.owner !== 'player'
+      if (voisins.some(v => v?.explored && !ownIsEmpire(v))) result.push(tile)
     }
   }
   return result
