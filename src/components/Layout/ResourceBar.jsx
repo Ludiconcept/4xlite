@@ -113,7 +113,7 @@ export function ResourceBar({ onInnovationsClick }) {
             <span>📦</span>
             <span style={{ fontWeight:500 }}>{totalStored}/{storageMax}</span>
             {storageFull && <span style={{ fontWeight:700 }}>!</span>}
-            <HelpTooltip text={`Stockage de base : 8 emplacements au total.\nChaque Entrepôt ajoute 4 emplacements.\nRessources récoltées au-delà du plafond sont perdues.`} position="bottom" />
+            <HelpTooltip text={`Stockage de base : 10 emplacements.\nChaque Entrepôt ajoute 5 emplacements.\nLes ressources récoltées au-delà du plafond sont perdues.`} position="bottom" />
           </div>
 
           {/* Bouton vider stockage */}

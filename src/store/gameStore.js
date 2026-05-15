@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createInitialGameState } from '../data/gameState.js'
 
 const SAVE_KEY = '4xlite_save'
-const SAVE_VERSION = '1.1.0'  // S6 - bump pour forcer réinit si format incompatible
+const SAVE_VERSION = '1.2.0'  // S6v12 - bump pour forcer réinit
 
 // ─────────────────────────────────────────────────────────────
 // Sauvegarde / restauration localStorage
@@ -11,6 +11,7 @@ function saveToStorage(state) {
   try {
     const toSave = {
       ...state,
+      version: SAVE_VERSION,
       lastSavedAt: new Date().toISOString(),
     }
     localStorage.setItem(SAVE_KEY, JSON.stringify(toSave))

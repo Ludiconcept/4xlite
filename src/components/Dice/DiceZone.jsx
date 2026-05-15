@@ -85,7 +85,8 @@ export function DiceZone({
 
   const values        = (externalDiceValues && externalDiceValues.length > 0) ? externalDiceValues : storeValues
   const equiperActif  = game?.activeEffects?.equiperActif || false
-  const servageActif  = game?.activeEffects?.servageActif || false
+  const servageActif    = game?.activeEffects?.servageActif || false
+  const etudierGratuit  = game?.activeEffects?.etudierGratuit || false
   const isAnimating   = rolling.length > 0
 
   // Si Servage activé pendant la phase 'rolled', augmenter maxSelect immédiatement
@@ -109,11 +110,17 @@ export function DiceZone({
     if (servageActif) {
       updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, servageActif: false } }))
     }
+    // etudierGratuit : pas de rollDice supplémentaire, le 5e dé est fixe (géré au rendu)
   }
 
   function confirmSelection() {
     if (selected.length < maxSelect || isAnimating) return
-    const actions = selected.map(i => ({ dieIndex: i, value: values[i] }))
+    let actions = selected.map(i => ({ dieIndex: i, value: values[i] }))
+    // etudierGratuit : ajouter un dé fixe 5 aux actions
+    if (etudierGratuit) {
+      actions = [...actions, { dieIndex: 99, value: 5, etudierGratuit: true }]
+      updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, etudierGratuit: false } }))
+    }
     const newTurn = (game?.turn || 0) + 1
     setTurnNumber(newTurn)
     updateGame(g => ({ ...g, turn: newTurn }))
@@ -121,7 +128,6 @@ export function DiceZone({
     onActionsConfirmed?.(actions)
     onActionsPhaseStart?.()
     setPhase('acting')
-    // Désactiver Équiper quand on confirme les actions
     if (equiperActif) {
       updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, equiperActif: false } }))
     }
@@ -153,6 +159,7 @@ export function DiceZone({
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>
               <span style={{ fontSize:13, color:'#64748b', fontWeight:500 }}>Tour {turnNumber} — En attente</span>
               {servageActif && <span style={{ fontSize:11, color:'#1e40af', background:'#eff6ff', border:'1px solid #93c5fd', borderRadius:6, padding:'2px 8px' }}>⛓️ Servage : 3 dés</span>}
+              {etudierGratuit && <span style={{ fontSize:11, color:'#92400e', background:'#fffbeb', border:'1px solid #f59e0b', borderRadius:6, padding:'2px 8px' }}>📜 Étudier gratuit</span>}
               <button onClick={handleRoll} style={{ background:'#e07b1a', color:'white', border:'none', padding:'8px 22px', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:7 }}>
                 <span style={{ fontSize:16 }}>🎲</span> Lancer les dés
               </button>
@@ -209,6 +216,19 @@ export function DiceZone({
               {equiperActif && !isAnimating && (
                 <div style={{ fontSize:10, color:'#d97706', background:'#fffbeb', border:'1px solid #f59e0b', borderRadius:6, padding:'2px 8px', flexShrink:0 }}>
                   ⚙️ {game?.resources?.fer || 0} Fer dispo.
+                </div>
+              )}
+
+              {/* Dé fixe Étudier si etudierGratuit actif */}
+              {etudierGratuit && !isAnimating && (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                  <div style={{ height:16 }} />
+                  <div style={{ width:48, height:48, borderRadius:8, background:'#fffbeb', border:'2px solid #f59e0b', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700, color:'#92400e', position:'relative' }}>
+                    5
+                    <span style={{ position:'absolute', top:-6, right:-6, fontSize:10, background:'#f59e0b', color:'white', borderRadius:4, padding:'1px 3px' }}>🔒</span>
+                  </div>
+                  <div style={{ height:16 }} />
+                  <span style={{ fontSize:9, color:'#92400e', textAlign:'center', maxWidth:52, lineHeight:1.2, fontWeight:500 }}>Étudier</span>
                 </div>
               )}
 

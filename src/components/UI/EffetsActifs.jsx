@@ -64,12 +64,17 @@ export function EffetsActifs() {
             updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, [key]: false } }))
           } />
         ))}
+        {/* Bâtiment gratuit (Travaux forcés) */}
+        {game.activeEffects?.batimentGratuit && (
+          <Badge emoji="⚒️" label="Travaux forcés" desc="Prochain bâtiment gratuit (ressources)" />
+        )}
+
         {/* Tributs actifs — un badge par empire */}
-        {Object.entries(game.activeEffects?.tributActifs || {}).filter(([,v])=>v).map(([empId]) => {
+        {[...new Set(Object.entries(game.activeEffects?.tributActifs||{}).filter(([,v])=>v).map(([k])=>String(k)))].map(empId => {
           const cfg = EMPIRE_CONFIG[empId]
           if (!cfg) return null
           return (
-            <Badge key={`tribut-${empId}`}
+            <Badge key={`tribut-str-${empId}`}
               emoji={cfg.emoji}
               label={`Tribut — ${cfg.name}`}
               desc="Prochaine attaque de cet empire annulée"

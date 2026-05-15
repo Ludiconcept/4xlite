@@ -96,7 +96,12 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
     if (!batInfo) return
 
     // Calculer le nouveau game state
+    const batimentGratuit = game.activeEffects?.batimentGratuit || false
     let ng = { ...game }
+    // Consommer batimentGratuit si actif
+    if (batimentGratuit) {
+      ng = { ...ng, activeEffects: { ...ng.activeEffects, batimentGratuit: false } }
+    }
 
     // Retirer le bâtiment remplacé si nécessaire
     if (replaceBat) {
@@ -115,8 +120,8 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
       }
     }
 
-    // Appliquer la construction
-    ng = appliquerConstruction(selectedBat, key, ng, { useAlt, collineMat, empireId })
+    // Appliquer la construction (gratuit si batimentGratuit actif)
+    ng = appliquerConstruction(selectedBat, key, ng, { useAlt, collineMat, empireId, gratuit: batimentGratuit })
     if (!ng) return // sécurité
 
     // Mettre à jour le state

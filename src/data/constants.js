@@ -83,8 +83,8 @@ export const POPULATION_INITIAL = {
 // Capacité de population
 export const POP_PER_TILE    = 10
 export const POP_PER_FARM    = 5
-export const BASE_STORAGE    = 8
-export const STORAGE_PER_WAREHOUSE = 4
+export const BASE_STORAGE    = 10
+export const STORAGE_PER_WAREHOUSE = 5
 
 // Empires
 export const EMPIRE_IDS = [1, 2, 3, 4]

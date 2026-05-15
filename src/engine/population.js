@@ -4,12 +4,12 @@
  */
 
 export const POP_PER_TILE = 3
-export const STORAGE_BASE = 8
-export const STORAGE_PER_ENTREPOT = 4
+export const STORAGE_BASE = 10
+export const STORAGE_PER_ENTREPOT = 5
 
 // Ordre de priorité pour la famine : N et P nourris en dernier (protégés)
 // F/O/A/G meurent en premier
-export const FAMINE_ORDER  = ['fermier','ouvrier','artisan','guerrier']
+export const FAMINE_ORDER  = ['fermier','ouvrier','artisan','guerrier','marin']
 export const FAMINE_PROTECTED = ['pretre','noble']
 export const ALL_POP_TYPES = [...FAMINE_ORDER, ...FAMINE_PROTECTED]
 
@@ -54,6 +54,13 @@ export function calcPopTotal(population) {
 export function calcSurpopulationCost(population, map) {
   const total  = calcPopTotal(population)
   const popMax = calcPopMax(map)
+  const excedent = Math.max(0, total - popMax)
+  return Math.ceil(excedent / 5)  // 1 Nourriture nourrit 5 pop excédentaires
+}
+
+export function calcSurpopulationExcedent(population, map) {
+  const total  = calcPopTotal(population)
+  const popMax = calcPopMax(map)
   return Math.max(0, total - popMax)
 }
 
@@ -76,9 +83,13 @@ export function resoudreSurpopulation(population, resources, map) {
     }
   }
 
-  // Famine : nourriture insuffisante
-  const manque = cout - nourritureDispo
-  // Populations pouvant mourir (pas N ni P)
+  // Surpopulation : nourriture insuffisante
+  const nourritureManquante = cout - nourritureDispo
+  // Pop nourries = nourritureDispo * 5, pop non nourries = excédent - nourritureDispo*5
+  const excedent = calcSurpopulationExcedent(population, map)
+  const popNourries = nourritureDispo * 5
+  const nbMorts = Math.max(0, excedent - popNourries)
+  // Populations pouvant mourir (pas Noble ni Prêtre)
   const mortsPossibles = FAMINE_ORDER.reduce((acc, type) => {
     if ((population[type] || 0) > 0) acc[type] = population[type]
     return acc
@@ -86,7 +97,7 @@ export function resoudreSurpopulation(population, resources, map) {
 
   return {
     newResources: { ...resources, nourriture: 0 },
-    famineData: { manque, mortsPossibles, cout },
+    famineData: { manque: nbMorts, mortsPossibles, cout, nourritureManquante },
   }
 }
 

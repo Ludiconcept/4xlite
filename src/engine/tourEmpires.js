@@ -3,7 +3,7 @@
  */
 import { EMPIRE_CONFIG } from '../data/empireConfig.js'
 import { resoudreD40 } from '../data/d40Config.js'
-import { getEvenementActuel, DERNIER_EVENEMENT_IDX } from '../data/evenements.js'
+import { getEvenementPourCase, NB_CASES_PISTE, CASE_PRESSION_IMPERIALE } from '../data/evenements.js'
 
 export function lancerDesEmpires(n=4) {
   return Array.from({length:n}, ()=>Math.floor(Math.random()*6)+1)
@@ -59,15 +59,33 @@ function resoudrePuissance(empireId, game) {
 
 function resoudreEvenement(game) {
   const currentIdx = game.eventIndex ?? 0
-  const newIdx     = currentIdx >= DERNIER_EVENEMENT_IDX ? DERNIER_EVENEMENT_IDX : currentIdx+1
-  const evenement  = getEvenementActuel(newIdx)
-  const newGame    = { ...game, eventIndex:newIdx }
+  const pressionActive = game.activeEffects?.pressionImperialeActive || false
+
+  // Si Pression impériale active : ne pas avancer la piste, rejouer evt 40
+  if (pressionActive) {
+    const evenement = getEvenementPourCase(CASE_PRESSION_IMPERIALE, true)
+    return {
+      type:'evenement', evenement, newEventIndex:currentIdx,
+      description:`📋 Pression impériale`,
+      newGame: { ...game },
+      needsPlayerChoice: false,
+      isNextTurn: false,
+    }
+  }
+
+  // Avancer la piste (max case 40, index 39)
+  const newIdx = Math.min(currentIdx + 1, NB_CASES_PISTE - 1)
+  const evenement = getEvenementPourCase(newIdx, false)
+  // Stocker l'historique : caseIdx = newIdx (la case déclenchée)
+  const hist = [...(game.evenementsHistory || []), { caseIdx: newIdx - 1, titre: evenement.titre }]
+  const newGame = { ...game, eventIndex: newIdx, evenementsHistory: hist }
   return {
-    type:'evenement', evenement, newEventIndex:newIdx,
-    description:`📋 Événement ${newIdx+1} : ${evenement.titre}`,
+    type:'evenement', evenement, newEventIndex: newIdx,
+    description:`📋 Événement case ${newIdx+1} : ${evenement.titre}`,
     newGame,
     needsPlayerChoice: evenement.type === 'choixJoueur',
     isNextTurn: evenement.type === 'nextTurn',
+    evenementTitre: evenement.titre,
   }
 }
 
@@ -197,9 +215,15 @@ export function resoudreCombatEmpireVsEmpire(attackerId, defenderId, tile, game)
 export function appliquerEffetsNextTurn(game) {
   const nte = game.nextTurnEffects || {}
   let g = {...game}
-  if (nte.bonus3Des) g = {...g, activeEffects:{...g.activeEffects, servageActif:true}}
+  if (nte.bonus3Des)        g = {...g, activeEffects:{...g.activeEffects, servageActif:true}}
   if (nte.batimentsMoinsCher) g = {...g, activeEffects:{...g.activeEffects, batimentsMoinsChers:true}}
-  if (nte.etudierGratuit) g = {...g, activeEffects:{...g.activeEffects, etudierGratuit:true}}
+  if (nte.etudierGratuit)   g = {...g, activeEffects:{...g.activeEffects, etudierGratuit:true}}
+  if (nte.actionBloquee)    g = {...g, activeEffects:{...g.activeEffects, actionBloquee:true}}
+  if (nte.secheresse)       g = {...g, activeEffects:{...g.activeEffects, secheresse:true}}
+  if (nte.inondation)       g = {...g, activeEffects:{...g.activeEffects, inondation:true}}
+  if (nte.batimentGratuit)  g = {...g, activeEffects:{...g.activeEffects, batimentGratuit:true}}
+  // Réinitialiser eclipseActive (déjà fait dans finalize, sécurité)
+  g = {...g, activeEffects:{...g.activeEffects, eclipseActive:false}}
   return {...g, nextTurnEffects:{}}
 }
 

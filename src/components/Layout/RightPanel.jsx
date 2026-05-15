@@ -1,6 +1,6 @@
 import { useGameStore } from '../../store/gameStore.js'
 import { EMPIRE_CONFIG } from '../../data/empireConfig.js'
-import { EVENEMENTS, getEvenementActuel, DERNIER_EVENEMENT_IDX } from '../../data/evenements.js'
+import { EVENEMENTS, DERNIER_EVENEMENT_IDX, NB_CASES_PISTE } from '../../data/evenements.js'
 
 export function RightPanel() {
   const game = useGameStore(s => s.game)
@@ -8,7 +8,12 @@ export function RightPanel() {
 
   const { empires } = game
   const eventIndex   = game.eventIndex ?? 0
-  const evenement    = getEvenementActuel(eventIndex)
+  const pressionActive = game.activeEffects?.pressionImperialeActive || false
+  // Afficher le DERNIER événement passé (pas le suivant)
+  const lastTitre = game.lastEvenementTitre || null
+  const history = game.evenementsHistory || []
+  const lastEntry = history.length > 0 ? history[history.length - 1] : null
+  const lastEvt = lastEntry ? EVENEMENTS.find(e => e.titre === lastEntry.titre) : null
 
   return (
     <div style={{ width:140, background:'white', borderLeft:'0.5px solid #e2e8f0', padding:'8px 8px', display:'flex', flexDirection:'column', gap:8, flexShrink:0, overflowY:'auto' }}>
@@ -35,28 +40,30 @@ export function RightPanel() {
         )
       })}
 
-      {/* Événement en cours */}
-      <div style={{ fontSize:10, fontWeight:500, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'.06em', marginTop:4 }}>Événement</div>
-      {evenement && (
+      {/* Dernier événement passé */}
+      <div style={{ fontSize:10, fontWeight:500, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'.06em', marginTop:4 }}>Dernier événement</div>
+      {lastEvt ? (
         <div style={{
           borderRadius:8, padding:'7px 8px',
-          background: evenement.grave ? '#fef2f2' : '#fffbeb',
-          border: `1px solid ${evenement.grave ? '#fca5a5' : '#fcd34d'}`,
+          background: lastEvt.grave ? '#fef2f2' : '#f8fafc',
+          border: `1px solid ${lastEvt.grave ? '#fca5a5' : '#e2e8f0'}`,
         }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3 }}>
-            <span style={{ fontSize:9, background: evenement.grave?'#dc2626':'#f59e0b', color:'white', padding:'1px 5px', borderRadius:6, fontWeight:500 }}>
-              {evenement.icone} {eventIndex + 1}/{EVENEMENTS.length}
+            <span style={{ fontSize:9, background: lastEvt.grave?'#dc2626':'#94a3b8', color:'white', padding:'1px 5px', borderRadius:6, fontWeight:500 }}>
+              {lastEvt.icone} case {lastEntry.caseIdx + 1}
             </span>
-            {eventIndex >= DERNIER_EVENEMENT_IDX && (
-              <span style={{ fontSize:9, color:'#dc2626' }}>🔁</span>
-            )}
+            {pressionActive && <span style={{ fontSize:9, color:'#dc2626' }}>🔁</span>}
           </div>
-          <div style={{ fontSize:11, fontWeight:500, color: evenement.grave?'#991b1b':'#92400e', marginBottom:2 }}>
-            {evenement.titre}
+          <div style={{ fontSize:11, fontWeight:500, color: lastEvt.grave?'#991b1b':'#374151', marginBottom:2 }}>
+            {lastEvt.titre}
           </div>
-          <div style={{ fontSize:10, color: evenement.grave?'#7f1d1d':'#78350f', lineHeight:1.4, opacity:.85 }}>
-            {evenement.texte.length > 80 ? evenement.texte.slice(0,80)+'…' : evenement.texte}
+          <div style={{ fontSize:10, color:'#64748b', lineHeight:1.4, opacity:.85 }}>
+            Prochain : case {Math.min(eventIndex+1, NB_CASES_PISTE-1)+1}/{NB_CASES_PISTE}
           </div>
+        </div>
+      ) : (
+        <div style={{ fontSize:11, color:'#94a3b8', fontStyle:'italic' }}>
+          Aucun événement passé
         </div>
       )}
     </div>

@@ -4,11 +4,11 @@ import { useLogStore } from '../../store/logStore.js'
 import { appliquerFamine, FAMINE_ORDER, FAMINE_PROTECTED } from '../../engine/population.js'
 
 const POP_LABELS = {
-  fermier:'Fermier', ouvrier:'Ouvrier', artisan:'Artisan', guerrier:'Guerrier',
+  fermier:'Fermier', ouvrier:'Ouvrier', artisan:'Artisan', guerrier:'Guerrier', marin:'Marin',
   pretre:'Prêtre', noble:'Noble',
 }
 const POP_EMOJI = {
-  fermier:'🧑‍🌾', ouvrier:'👷', artisan:'🛠️', guerrier:'⚔️', pretre:'⛪', noble:'👑',
+  fermier:'🧑‍🌾', ouvrier:'👷', artisan:'🛠️', guerrier:'⚔️', marin:'⚓', pretre:'⛪', noble:'👑',
 }
 
 export function FaminePopup({ famineData, onConfirm }) {
@@ -59,16 +59,19 @@ export function FaminePopup({ famineData, onConfirm }) {
 
         {/* Titre */}
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ width:36, height:36, borderRadius:'50%', background:'#fef2f2', border:'1px solid #fca5a5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>🌾</div>
+          <div style={{ width:36, height:36, borderRadius:'50%', background:'#fef2f2', border:'1px solid #fca5a5', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>👥</div>
           <div>
-            <div style={{ fontSize:15, fontWeight:500, color:'#1e293b' }}>Famine</div>
-            <div style={{ fontSize:12, color:'#64748b' }}>Nourriture insuffisante ce tour</div>
+            <div style={{ fontSize:15, fontWeight:500, color:'#1e293b' }}>Surpopulation</div>
+            <div style={{ fontSize:12, color:'#64748b' }}>La capacité maximale est dépassée</div>
           </div>
         </div>
 
         {/* Contexte */}
         <div style={{ background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, padding:'10px 12px', fontSize:12, color:'#7f1d1d', lineHeight:1.5 }}>
-          Vous avez <strong>{manque} population{manque>1?'s':''} en excédent</strong> sans nourriture pour les nourrir. {manque > 1 ? `${manque} populations mourront` : '1 population mourra'} à la fin de ce tour.
+          {famineData.nourritureManquante > 0
+            ? <>Nourriture insuffisante pour nourrir la surpopulation. <strong>{manque} population{manque>1?'s':''} mourront</strong> faute de ressources.</>
+            : <><strong>{manque} population{manque>1?'s':''} en excédent</strong> doivent être retirées.</>
+          }
         </div>
 
         {/* Répartition des pertes */}
@@ -114,7 +117,7 @@ export function FaminePopup({ famineData, onConfirm }) {
 
         {/* Note */}
         <div style={{ fontSize:11, color:'#64748b', background:'#f8fafc', borderRadius:8, padding:'7px 10px', lineHeight:1.5 }}>
-          Prêtres et Nobles sont toujours nourris en priorité. Répartissez les {manque} pertes entre Fermiers, Ouvriers, Artisans et Guerriers.
+          Nobles et Prêtres sont protégés. Répartissez les {manque} perte{manque>1?'s':''} entre Fermiers, Ouvriers, Artisans, Guerriers et Marins.
         </div>
 
         <button onClick={confirmer} disabled={!peutConfirmer} style={{ padding:'10px 0', background: peutConfirmer?'#dc2626':'#e2e8f0', color:'white', border:'none', borderRadius:8, fontSize:13, fontWeight:500, cursor:peutConfirmer?'pointer':'default' }}>

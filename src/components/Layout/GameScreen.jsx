@@ -70,6 +70,7 @@ export function GameScreen() {
   const [famineData,     setFamineData]     = useState(null)
   const [equiperMode,    setEquiperMode]    = useState(false)
   const [highlightTiles, setHighlight]      = useState([])
+  const [caseSelectCallback, setCaseSelectCallback] = useState(null)
 
   const [confirmedActions, setConfirmedActions] = useState([])
   const [usedActions,      setUsedActions]       = useState([])
@@ -85,6 +86,13 @@ export function GameScreen() {
   const mapClickMode  = currentAction !== null
 
   function handleMapTileClick(tile) {
+    // Priorité : sélection de case pour soumission des tribus
+    if (caseSelectCallback) {
+      caseSelectCallback(tile)
+      setCaseSelectCallback(null)
+      setHighlight([])
+      return
+    }
     if (mapClickMode) setMapTileClicked(tile)
   }
 
@@ -129,8 +137,10 @@ export function GameScreen() {
   }
 
   function handleTurnEnd() {
-    const { newResources, famineData: fd } = resoudreSurpopulation(game.population, game.resources, game.map)
-    const newStorageMax = calcStorageMax(game.map)
+    // Lire le state frais pour éviter les stale closures
+    const freshGame = useGameStore.getState().game
+    const { newResources, famineData: fd } = resoudreSurpopulation(freshGame.population, freshGame.resources, freshGame.map)
+    const newStorageMax = calcStorageMax(freshGame.map)
     if (fd) {
       updateGame(g => ({ ...g, resources: newResources, storageMax: newStorageMax }))
       setFamineData(fd)
@@ -171,7 +181,7 @@ export function GameScreen() {
         <PopulationPanel />
 
         <div style={{ flex:1, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', padding:6, minWidth:0, position:'relative' }}>
-          <GameMap map={game.map} empires={game.empires} highlightTiles={highlightTiles} onTileClick={mapClickMode ? handleMapTileClick : undefined} />
+          <GameMap map={game.map} empires={game.empires} highlightTiles={highlightTiles} onTileClick={(mapClickMode || caseSelectCallback) ? handleMapTileClick : undefined} />
           {/* Effets actifs — flottant en bas à gauche de la carte */}
           <div style={{ position:'absolute', bottom:10, left:10, zIndex:50 }}>
             <EffetsActifs />
@@ -213,10 +223,19 @@ export function GameScreen() {
       <div style={{ borderTop:'0.5px solid #e2e8f0', flexShrink:0 }}>
         {showEmpires ? (
           <TourEmpiresPanel
+            key={`tour-empires-${game.turn}`}
             onClose={() => setShowEmpires(false)}
             onHighlightCase={(tile, action) => {
               if (tile) setHighlight([{ ...tile, empireAction: action }])
               else setHighlight([])
+            }}
+            onRequestCaseSelect={(eligibles, callback) => {
+              setHighlight(eligibles.map(t => ({ ...t, selectHighlight: true })))
+              setCaseSelectCallback(() => callback)
+            }}
+            onClearCaseSelect={() => {
+              setCaseSelectCallback(null)
+              setHighlight([])
             }}
           />
         ) : (

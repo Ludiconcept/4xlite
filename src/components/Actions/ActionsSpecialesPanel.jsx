@@ -295,7 +295,11 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
   const gameWithDice = { ...game, _diceRolledThisTurn: diceRolled, _dicePhase: dicePhase }
 
   function handleConfirm(actionId, params) {
-    const newGame = appliquerActionSpeciale(actionId, params, game)
+    // Pour 'tribut', lire le store frais pour éviter l'écrasement entre clics successifs
+    const gameForAction = actionId === 'tribut'
+      ? useGameStore.getState().game
+      : game
+    const newGame = appliquerActionSpeciale(actionId, params, gameForAction)
     if (!newGame) return
     updateGame(() => newGame)
     // Incrémenter utilisation dans le gameStore (persisté, reset en fin de tour)
@@ -510,7 +514,8 @@ function appliquerActionSpeciale(actionId, params, game) {
       const empId = params?.empireId
       if (!empId) return game
       newResources.or = Math.max(0, (newResources.or||0) - 3)
-      const tributActifs = { ...(game.activeEffects?.tributActifs||{}), [empId]: true }
+      // Stocker la clé en Number ET String pour garantir la compatibilité
+      const tributActifs = { ...(game.activeEffects?.tributActifs||{}), [Number(empId)]: true, [String(empId)]: true }
       return { ...game, resources: newResources, activeEffects: { ...game.activeEffects, tributActifs } }
     }
 

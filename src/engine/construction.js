@@ -85,7 +85,7 @@ export const BATIMENTS = {
   },
   entrepot: {
     id: 'entrepot', name: 'Entrepôt', emoji: '📦',
-    description: '+4 emplacements de stockage.',
+    description: '+5 emplacements de stockage.',
     terrains: ['marais','plaine','desert','colline','montagne'],
     cout: { ressources: { bois: 2 }, population: {} },
     altCout: { argile: 2 },
@@ -216,14 +216,16 @@ export function appliquerConstruction(batimentId, tileKey, game, opts = {}) {
   let newRes = { ...game.resources }
   let newPop = { ...game.population }
 
-  // Déduire ressources
-  const coutRes = opts.useAlt ? (bat.altCout || bat.cout.ressources) : bat.cout.ressources
-  for (const [res, qte] of Object.entries(coutRes || {})) {
-    newRes[res] = (newRes[res] || 0) - qte
-  }
-  // Ferme colline
-  if (batimentId === 'ferme' && opts.collineMat) {
-    newRes[opts.collineMat] = (newRes[opts.collineMat] || 0) - 1
+  // Déduire ressources (sauf si bâtiment gratuit — Travaux forcés)
+  if (!opts.gratuit) {
+    const coutRes = opts.useAlt ? (bat.altCout || bat.cout.ressources) : bat.cout.ressources
+    for (const [res, qte] of Object.entries(coutRes || {})) {
+      newRes[res] = (newRes[res] || 0) - qte
+    }
+    // Ferme colline
+    if (batimentId === 'ferme' && opts.collineMat) {
+      newRes[opts.collineMat] = (newRes[opts.collineMat] || 0) - 1
+    }
   }
   // Déduire population
   for (const [type, qte] of Object.entries(bat.cout.population || {})) {
@@ -241,8 +243,8 @@ export function appliquerConstruction(batimentId, tileKey, game, opts = {}) {
   }))
 
   // Effets immédiats
-  let newStorageMax = game.storageMax || 8
-  if (batimentId === 'entrepot') newStorageMax += 4
+  let newStorageMax = game.storageMax || 10
+  if (batimentId === 'entrepot') newStorageMax += 5
 
   return { ...game, map: newMap, resources: newRes, population: newPop, storageMax: newStorageMax }
 }

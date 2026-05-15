@@ -127,7 +127,7 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <h3 style={{ fontWeight:600, fontSize:14, color:'#1e293b' }}>⚔️ Attaquer</h3>
         {canClose
-          ? <button onClick={() => { onMarkUsed?.(); onClose() }} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:16 }}>✕</button>
+          ? <button onClick={() => { if (phase === 'result') onMarkUsed?.(); onClose() }} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:16 }}>✕</button>
           : <span style={{ width:20 }} />
         }
       </div>
