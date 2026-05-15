@@ -338,32 +338,9 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
         <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#94a3b8', fontSize:16 }}>✕</button>
       </div>
 
-      {/* Badge Servage actif */}
-      {game?.activeEffects?.servageActif && (
-        <div style={{ background:'#eff6ff', border:'1px solid #93c5fd', borderRadius:8, padding:'7px 10px', fontSize:12, color:'#1e40af', display:'flex', alignItems:'center', gap:6 }}>
-          <span>⛓️</span>
-          <span style={{ flex:1 }}>Servage actif : 3 dés au prochain lancer</span>
-          <button onClick={() => updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, servageActif: false }, turnLimits: { ...g.turnLimits, servageUsed: false } }))}
-            style={{ background:'none', border:'none', cursor:'pointer', color:'#1e40af', fontSize:11, textDecoration:'underline' }}>Annuler</button>
-        </div>
-      )}
-      {/* Badge Équiper actif */}
-      {game?.activeEffects?.equiperActif && (
-        <div style={{ background:'#f8fafc', border:'1px solid #cbd5e1', borderRadius:8, padding:'7px 10px', fontSize:12, color:'#475569', display:'flex', alignItems:'center', gap:6 }}>
-          <span>⚙️</span>
-          <span style={{ flex:1 }}>Équiper actif : +/- sur les dés (1 Fer/clic)</span>
-          <button onClick={() => updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, equiperActif: false } }))}
-            style={{ background:'none', border:'none', cursor:'pointer', color:'#475569', fontSize:11, textDecoration:'underline' }}>Désactiver</button>
-        </div>
-      )}
-      {/* Badge Armer actif */}
-      {showArmerBadge && (
-        <div style={{ background:'#fef9c3', border:'1px solid #f59e0b', borderRadius:8, padding:'7px 10px', fontSize:12, color:'#92400e', display:'flex', alignItems:'center', gap:6 }}>
-          <span>🗡️</span>
-          <span style={{ flex:1 }}>Armer actif : -1 perte au prochain combat</span>
-          <button onClick={() => setArmerActive(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#92400e', fontSize:11, textDecoration:'underline' }}>Annuler</button>
-        </div>
-      )}
+
+
+
 
       {/* Liste ou sous-panneau actif */}
       {!activeAction ? (

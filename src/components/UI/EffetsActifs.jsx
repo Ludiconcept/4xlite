@@ -44,8 +44,11 @@ export function EffetsActifs() {
   if (!game) return null
 
   const effetsActifs = Object.entries(EFFETS).filter(([key]) => game.activeEffects?.[key])
+  const hasTributs = Object.values(game.activeEffects?.tributActifs || {}).some(Boolean)
+  const hasEclipse = game.activeEffects?.eclipseActive || false
+  const hasBatGratuit = game.activeEffects?.batimentGratuit || false
 
-  if (effetsActifs.length === 0) return null
+  if (effetsActifs.length === 0 && !hasTributs && !hasEclipse && !hasBatGratuit) return null
 
   return (
     <>
@@ -64,6 +67,11 @@ export function EffetsActifs() {
             updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, [key]: false } }))
           } />
         ))}
+        {/* Éclipse */}
+        {game.activeEffects?.eclipseActive && (
+          <Badge emoji="🌑" label="Éclipse" desc="Aucune attaque empire ce tour" />
+        )}
+
         {/* Bâtiment gratuit (Travaux forcés) */}
         {game.activeEffects?.batimentGratuit && (
           <Badge emoji="⚒️" label="Travaux forcés" desc="Prochain bâtiment gratuit (ressources)" />

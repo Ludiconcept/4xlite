@@ -89,7 +89,7 @@ function resoudreEvenement(game) {
   }
 }
 
-function resoudreD40Action(game, d40Value) {
+export function resoudreD40Action(game, d40Value) {
   if (!game.configD40) return { type:'d40', description:'D40 : config manquante.', newGame:game }
   const cible = resoudreD40(d40Value, game.configD40)
   if (!cible) return { type:'d40', description:`D40 ${d40Value} : aucune cible.`, newGame:game }

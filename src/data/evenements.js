@@ -44,8 +44,12 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Bonus',
     choixTexte: `Choisissez 2 ressources parmi : Nourriture, Bois, Argile, Fer, Or.`,
-    finScene: `Les ressources choisies arrivent dans vos entrepôts.`,
-    effetTexte: `+1 de chaque ressource choisie.`,
+    resultats: {
+      A: {
+        fin: "Les ressources choisies arrivent dans vos entrepôts.",
+        effet: "+2 ressources au choix.",
+      },
+    },
   },
 
   // ── 3 Récolte exceptionnelle ──────────────────────────────────────────
@@ -135,9 +139,24 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Bonus',
     choixTexte: `A)+2 Fermiers  B)+2 Ouvriers  C)+2 Artisans  D)Les refouler`,
-    finScene: `[A/B/C] Les nouveaux venus construisent une cabane.
-[D] Les familles repartent.`,
-    effetTexte: `[A]+2 Fermiers+Cabane  [B]+2 Ouvriers+Cabane  [C]+2 Artisans+Cabane  [D]Empire+1 Puissance`,
+    resultats: {
+      A: {
+        fin: `Les nouveaux venus s'installent. Une cabane s'élève.`,
+        effet: "+2 Fermiers. +1 Cabane.",
+      },
+      B: {
+        fin: `Les nouveaux venus s'installent. Une cabane s'élève.`,
+        effet: "+2 Ouvriers. +1 Cabane.",
+      },
+      C: {
+        fin: `Les nouveaux venus s'installent. Une cabane s'élève.`,
+        effet: "+2 Artisans. +1 Cabane.",
+      },
+      D: {
+        fin: "Les familles repartent en se lamentant.",
+        effet: "Empire le plus puissant +1 Puissance.",
+      },
+    },
   },
 
   // ── 11 Famine ─────────────────────────────────────────────────────────
@@ -150,8 +169,12 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Malus',
     choixTexte: `1 Nourriture nourrit 5 pop. Nobles et Prêtres protégés. Désignez qui meurt.`,
-    finScene: `Le calme revient. Les survivants reprennent le travail.`,
-    effetTexte: `Nourriture déduite. Populations désignées mortes.`,
+    resultats: {
+      A: {
+        fin: "Le calme revient. Les survivants reprennent le travail.",
+        effet: "Nourriture déduite. Populations mortes.",
+      },
+    },
   },
 
   // ── 12 Épidémie ───────────────────────────────────────────────────────
@@ -164,8 +187,12 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Malus',
     choixTexte: `Désignez 2 populations qui meurent. Avec Hôpital : 1 seule perte.`,
-    finScene: `Les malades sont isolés. Le peuple reprend pied.`,
-    effetTexte: `[Sans Hôpital]-2 pop  [Avec Hôpital]-1 pop`,
+    resultats: {
+      A: {
+        fin: "Les malades sont isolés. Le peuple reprend pied.",
+        effet: "Sans Hôpital : -2 populations. Avec Hôpital : -1 population.",
+      },
+    },
   },
 
   // ── 13 Sécheresse ─────────────────────────────────────────────────────
@@ -178,10 +205,16 @@ export const EVENEMENTS = [
     roleplay: true,
     cat_display: 'Malus',
     choixTexte: `A)Payer 2 Fer  B)Subir l'effet`,
-    finScene: `[A]Des puits creusés. Cultures sauvées.
-[B]Les champs brûlent.`,
-    effetTexte: `[A]-2 Fer
-[B]Fermes Désert/Plaine inactives au prochain tour`,
+    resultats: {
+      A: {
+        fin: "Des puits creusés en urgence. Les cultures survivent de justesse.",
+        effet: "-2 Fer. Aucune perte de récolte.",
+      },
+      B: {
+        fin: "Les champs brûlent. Vos fermiers récoltent peu ou rien.",
+        effet: "Fermes en Désert et Plaine inactives au prochain tour.",
+      },
+    },
   },
 
   // ── 14 Tremblement de terre ───────────────────────────────────────────
@@ -194,10 +227,16 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Malus',
     choixTexte: `Désignez 2 bâtiments à détruire. Génie civil : aucune destruction.`,
-    finScene: `[Sans GC]Décombres dégagés.
-[Avec GC]Vos bâtiments résistent.`,
-    effetTexte: `[Sans GC]2 bâtiments détruits
-[Avec GC]Aucun effet`,
+    resultats: {
+      A: {
+        fin: "Les décombres sont dégagés. Les artisans commencent à reconstruire.",
+        effet: "2 bâtiments détruits.",
+      },
+      B: {
+        fin: "Vos bâtiments résistent. Le Génie civil a tenu ses promesses.",
+        effet: "Aucun effet — Génie civil actif.",
+      },
+    },
   },
 
   // ── 15 SCRIPTÉ — Montée en puissance ─────────────────────────────────
@@ -221,12 +260,20 @@ export const EVENEMENTS = [
     roleplay: true,
     cat_display: 'Malus',
     choixTexte: `A)Distribuer de l'Or  B)Envoyer l'armée  C)Ne rien faire`,
-    finScene: `[A]Les esprits s'apaisent.
-[B]La révolte est matée.
-[C]Les émeutiers pillent les réserves.`,
-    effetTexte: `[A]-2 Or
-[B]-2 Ouvriers/Fermiers
-[C]-5 ressources`,
+    resultats: {
+      A: {
+        fin: `L'or circule dans les rues. Les esprits s'apaisent.`,
+        effet: "-2 Or.",
+      },
+      B: {
+        fin: `L'armée défile. La révolte est matée dans le sang.`,
+        effet: "-2 Ouvriers ou Fermiers au hasard.",
+      },
+      C: {
+        fin: "La situation dégénère. Les émeutiers pillent les réserves.",
+        effet: "-5 ressources aléatoires.",
+      },
+    },
   },
 
   // ── 17 Inondation ─────────────────────────────────────────────────────
@@ -239,10 +286,16 @@ export const EVENEMENTS = [
     roleplay: true,
     cat_display: 'Malus',
     choixTexte: `A)Payer 1 Bois  B)Subir l'effet`,
-    finScene: `[A]Des digues élevées. Champs sauvés.
-[B]Les eaux montent. Champs noyés.`,
-    effetTexte: `[A]-1 Bois
-[B]Fermes Marais/Fleuve inactives`,
+    resultats: {
+      A: {
+        fin: "Des digues élevées à la hâte. Les champs sont sauvés.",
+        effet: "-1 Bois. Aucune perte.",
+      },
+      B: {
+        fin: "Les eaux montent. Vos champs sont noyés.",
+        effet: "Fermes en Marais et Fleuve inactives au prochain tour.",
+      },
+    },
   },
 
   // ── 18 Incendie ───────────────────────────────────────────────────────
@@ -255,8 +308,12 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Malus',
     choixTexte: `Désignez 1 bâtiment à détruire en Forêt ou adjacent.`,
-    finScene: `Les flammes s'éteignent.`,
-    effetTexte: `Bâtiment détruit. -1 Bois.`,
+    resultats: {
+      A: {
+        fin: `Les flammes s'éteignent. Il ne reste que les cendres.`,
+        effet: "1 bâtiment détruit. -1 Bois.",
+      },
+    },
   },
 
   // ── 19 Ressource épuisée ──────────────────────────────────────────────
@@ -269,8 +326,12 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Malus',
     choixTexte: `Choisissez 2 ressources à perdre : Or, Fer ou Argile.`,
-    finScene: `Les entrepôts se vident.`,
-    effetTexte: `-2 ressources choisies`,
+    resultats: {
+      A: {
+        fin: `Les entrepôts se vident. Vos artisans s'adaptent.`,
+        effet: "-2 ressources choisies parmi Or, Fer, Argile.",
+      },
+    },
   },
 
   // ── 20 Éruption volcanique ────────────────────────────────────────────
@@ -294,10 +355,20 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Malus',
     choixTexte: `A)Dépenser 3 Or  B)-1 Prêtre et -1 Noble  C)-1 dé prochain tour`,
-    finScene: `[A]Les Dieux apaisés.
-[B]Des têtes tombent.
-[C]Le désordre s'installe.`,
-    effetTexte: `[A]-3 Or  [B]-1 Prêtre-1 Noble  [C]-1 dé`,
+    resultats: {
+      A: {
+        fin: `Les Dieux semblent apaisés. Pour l'instant.`,
+        effet: "-3 Or.",
+      },
+      B: {
+        fin: "Des têtes tombent à la cour. Le calme revient dans la douleur.",
+        effet: "-1 Prêtre. -1 Noble.",
+      },
+      C: {
+        fin: `Le désordre s'installe. Vos conseillers sont paralysés.`,
+        effet: `-1 dé d'action au prochain tour.`,
+      },
+    },
   },
 
   // ── 22 Expansion impériale ────────────────────────────────────────────
@@ -365,8 +436,12 @@ export const EVENEMENTS = [
     roleplay: true,
     cat_display: 'Interaction',
     choixTexte: `Choisissez 1 empire pour conclure une trêve.`,
-    finScene: `Le traité est signé. Prochaine attaque annulée.`,
-    effetTexte: `Tribut actif sur cet empire.`,
+    resultats: {
+      A: {
+        fin: "Le traité est signé. Sa prochaine attaque sera annulée.",
+        effet: "Tribut actif. Prochaine attaque de cet empire annulée.",
+      },
+    },
   },
 
   // ── 28 Tribut forcé ───────────────────────────────────────────────────
@@ -379,9 +454,16 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Interaction',
     choixTexte: `A)Payer 3 Or  B)Refuser`,
-    finScene: `[A]Les soldats se retirent.
-[B]L'empire se met en marche.`,
-    effetTexte: `[A]-3 Or + Tribut  [B]1 D40 immédiat`,
+    resultats: {
+      A: {
+        fin: `L'or change de main. Les soldats se retirent.`,
+        effet: `-3 Or. Tribut activé sur l'empire le plus puissant.`,
+      },
+      B: {
+        fin: `L'empire est furieux. Ses légions se mettent en marche.`,
+        effet: "1 D40 immédiat contre vous.",
+      },
+    },
   },
 
   // ── 29 Soumission des tribus ──────────────────────────────────────────
@@ -394,9 +476,16 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Interaction',
     choixTexte: `A)Protéger (-2 Guerriers)  B)Refuser`,
-    finScene: `[A]Les tribus s'installent.
-[B]Les tribus repartent.`,
-    effetTexte: `[A]-2G+case+Cabane+2F  [B]Aucun effet`,
+    resultats: {
+      A: {
+        fin: `Les tribus s'installent sur votre territoire. Une cabane s'élève.`,
+        effet: "-2 Guerriers. 1 case colonisée + 1 Cabane. +2 Fermiers.",
+      },
+      B: {
+        fin: `Les tribus repartent vers l'incertain.`,
+        effet: "Aucun effet.",
+      },
+    },
   },
 
   // ── 30 SCRIPTÉ — Éveil des titans ────────────────────────────────────
@@ -420,9 +509,16 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Interaction',
     choixTexte: `A)Sacrifier 1 Ouvrier (bâtiment gratuit)  B)Refuser`,
-    finScene: `[A]Les chantiers s'ouvrent.
-[B]Rien ne se construit.`,
-    effetTexte: `[A]-1 Ouvrier+bâtiment gratuit  [B]Rien`,
+    resultats: {
+      A: {
+        fin: `Les chantiers s'ouvrent à la hâte. La structure s'élève en quelques heures.`,
+        effet: "-1 Ouvrier. Prochain bâtiment gratuit (coût ressources annulé).",
+      },
+      B: {
+        fin: `Faute de main-d'oeuvre, rien ne se construit.`,
+        effet: "Aucun effet.",
+      },
+    },
   },
 
   // ── 32 Mercenaires ────────────────────────────────────────────────────
@@ -435,9 +531,24 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Interaction',
     choixTexte: `A)2 Or+1G  B)4 Or+2G  C)6 Or+3G  D)Décliner`,
-    finScene: `[A/B/C]Mercenaires recrutés.
-[D]Ils repartent déçus.`,
-    effetTexte: `[A]-2Or+1G  [B]-4Or+2G  [C]-6Or+3G  [D]Rien`,
+    resultats: {
+      A: {
+        fin: `Les mercenaires rejoignent vos rangs, motivés par l'or.`,
+        effet: "-2 Or. +1 Guerrier.",
+      },
+      B: {
+        fin: `Les mercenaires rejoignent vos rangs, motivés par l'or.`,
+        effet: "-4 Or. +2 Guerriers.",
+      },
+      C: {
+        fin: `Les mercenaires rejoignent vos rangs, motivés par l'or.`,
+        effet: "-6 Or. +3 Guerriers.",
+      },
+      D: {
+        fin: "Les mercenaires repartent, déçus de votre refus.",
+        effet: "Aucun effet.",
+      },
+    },
   },
 
   // ── 33 Espionnage ─────────────────────────────────────────────────────
@@ -450,9 +561,16 @@ export const EVENEMENTS = [
     roleplay: false,
     cat_display: 'Interaction',
     choixTexte: `A)Espionner 1 empire  B)Ne pas espionner`,
-    finScene: `[A]Vos agents rapportent des documents dérobés.
-[B]Vous rappelez vos espions.`,
-    effetTexte: `[A]Profil D40 révélé + Tribut actif  [B]Aucun effet`,
+    resultats: {
+      A: {
+        fin: "Vos agents reviennent avec des documents dérobés.",
+        effet: "Profil D40 révélé. Tribut actif — prochaine attaque annulée.",
+      },
+      B: {
+        fin: "Vous rappelez vos espions. Ne prenons pas de risques.",
+        effet: "Aucun effet.",
+      },
+    },
   },
 
   // ── 34 Éclipse ────────────────────────────────────────────────────────
@@ -473,11 +591,15 @@ export const EVENEMENTS = [
     texte: 'Explorez gratuitement 1 case non explorée adjacente à votre territoire.',
     type: 'choixJoueur',
     effet: { type: 'decouverte' },
-    roleplay: false,
+    roleplay: true,
     cat_display: 'Neutre',
     choixTexte: `Choisissez 1 case non explorée adjacente.`,
-    finScene: `Les cartes se déroulent.`,
-    effetTexte: `Case explorée. Terrain révélé.`,
+    resultats: {
+      A: {
+        fin: "Les cartes se déroulent. Un territoire inconnu prend forme.",
+        effet: "La case choisie est explorée.",
+      },
+    },
   },
 
   // ── 36 Retournement de fortune ────────────────────────────────────────
@@ -523,8 +645,12 @@ export const EVENEMENTS = [
     roleplay: true,
     cat_display: 'Neutre',
     choixTexte: `Désignez 1 bâtiment à détruire.`,
-    finScene: `Le cataclysme s'éloigne.`,
-    effetTexte: `Empires perdent 1 case proche (-2 Puissance). Bâtiment détruit.`,
+    resultats: {
+      A: {
+        fin: `Le cataclysme s'éloigne. Tout le monde compte ses pertes.`,
+        effet: "Chaque empire perd 1 case proche (-2 Puissance). 1 bâtiment détruit.",
+      },
+    },
   },
 
   // ── 40 SCRIPTÉ — Pression impériale (se répète) ──────────────────────

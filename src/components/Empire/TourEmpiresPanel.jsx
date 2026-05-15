@@ -3,11 +3,12 @@ import { useGameStore } from '../../store/gameStore.js'
 import { useLogStore } from '../../store/logStore.js'
 import { EMPIRE_CONFIG } from '../../data/empireConfig.js'
 import {
-  lancerDesEmpires, resoudreDe,
+  lancerDesEmpires, resoudreDe, resoudreD40Action,
   resoudreCombatEmpireVsJoueur, resoudreCombatEmpireVsEmpire,
   appliquerEffetsNextTurn, appliquerExpansionImperiale,
 } from '../../engine/tourEmpires.js'
 import { calcPopMax } from '../../engine/population.js'
+import { genererCase } from '../../engine/exploration.js'
 
 const pause = ms => new Promise(r => setTimeout(r, ms))
 
@@ -343,7 +344,7 @@ function EventOverlay({ evenement, game, onConfirm, infoOnly, caseIdx, effetCalc
       }}>
 
         {/* Header */}
-        <div style={{ background:S.bg, borderBottom:`1.5px solid ${S.border}`, padding:'14px 18px', display:'flex', alignItems:'center', gap:12 }}>
+        <div style={{ background:S.bg, borderBottom:`1.5px solid ${S.border}`, padding:'14px 18px', display:'flex', alignItems:'center', gap:12, borderRadius:'16px 16px 0 0' }}>
           <div style={{ width:44, height:44, borderRadius:10, background:S.badge, border:`1px solid ${S.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, flexShrink:0 }}>
             {icone}
           </div>
@@ -396,8 +397,12 @@ function EventOverlay({ evenement, game, onConfirm, infoOnly, caseIdx, effetCalc
                   evenement={evenement}
                   game={game}
                   onConfirm={(newGame, labelChoix) => {
+                    // _select = sélection de case en cours → ne pas intercepter
+                    if (labelChoix && labelChoix.endsWith('_select')) {
+                      onConfirm(newGame, labelChoix)
+                      return
+                    }
                     if (finScene && finScene !== '—') {
-                      // Toujours montrer la phase résultat si finScene existe
                       setChoixFait(labelChoix || '')
                       pendingNewGameRef.current = newGame
                       setPhaseStable('resultat')
@@ -412,36 +417,33 @@ function EventOverlay({ evenement, game, onConfirm, infoOnly, caseIdx, effetCalc
           )}
 
           {/* Phase résultat (roleplay) */}
-          {phase === 'resultat' && (
-            <>
-              <div style={{ borderTop:'0.5px solid #e2e8f0', paddingTop:12 }} />
-              {/* Fin scénarisée */}
-              {finScene && (
-                <div style={{ background:S.bg, border:`1px solid ${S.border}`, borderRadius:9, padding:'11px 13px' }}>
-                  {finScene.split('\n').map((line, i) => (
-                    <p key={i} style={{ fontSize:13, color:S.title, lineHeight:1.55, margin:0, marginBottom:i < finScene.split('\n').length-1 ? 4 : 0, fontStyle:'italic' }}>
-                      {line}
+          {phase === 'resultat' && (() => {
+            const r = evenement.resultats?.[choixFait]
+            const finText = r?.fin || ''
+            const effetText = r?.effet || ''
+            return (
+              <>
+                <div style={{ borderTop:'0.5px solid #e2e8f0', paddingTop:12 }} />
+                {finText && (
+                  <div style={{ background:S.bg, border:`1px solid ${S.border}`, borderRadius:9, padding:'11px 13px' }}>
+                    <p style={{ fontSize:13, color:S.title, lineHeight:1.6, margin:0, fontStyle:'italic' }}>
+                      {finText}
                     </p>
-                  ))}
-                </div>
-              )}
-              {/* Effet concret */}
-              {effetTexte && (
-                <div style={{ background:'#f8fafc', border:'0.5px solid #e2e8f0', borderRadius:9, padding:'10px 13px' }}>
-                  <div style={{ fontSize:11, color:'#94a3b8', fontWeight:500, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>Effet</div>
-                  {effetTexte.split('\n').map((line, i) => (
-                    <p key={i} style={{ fontSize:12, color:'#374151', lineHeight:1.5, margin:0, marginBottom:i < effetTexte.split('\n').length-1 ? 3 : 0 }}>
-                      {line}
-                    </p>
-                  ))}
-                </div>
-              )}
-              <button onClick={()=>{ const ng = pendingNewGameRef.current || game; onConfirm(ng) }}
-                style={{ padding:'11px 0', borderRadius:10, border:'none', background:S.badgeText, color:'white', fontSize:13, fontWeight:500, cursor:'pointer' }}>
-                Continuer →
-              </button>
-            </>
-          )}
+                  </div>
+                )}
+                {effetText && (
+                  <div style={{ background:'#f8fafc', border:'0.5px solid #e2e8f0', borderRadius:9, padding:'10px 13px' }}>
+                    <div style={{ fontSize:11, color:'#94a3b8', fontWeight:500, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 }}>Effet</div>
+                    <p style={{ fontSize:12, color:'#374151', lineHeight:1.5, margin:0 }}>{effetText}</p>
+                  </div>
+                )}
+                <button onClick={()=>{ const ng = pendingNewGameRef.current || game; onConfirm(ng) }}
+                  style={{ padding:'11px 0', borderRadius:10, border:'none', background:S.badgeText, color:'white', fontSize:13, fontWeight:500, cursor:'pointer' }}>
+                  Continuer →
+                </button>
+              </>
+            )
+          })()}
 
         </div>
       </div>
@@ -515,7 +517,7 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
         ))}
         <button onClick={()=>{
           // Refouler → empire le plus puissant +1 power
-          const sorted=Object.entries(game.empires||{}).sort(([,a],[,b])=>b.power-a.power)
+          const sorted=Object.entries(game.empires||{}).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)
           if(!sorted.length){onConfirm(game);return}
           const [topId,topEmp]=sorted[0]
           const ne={...game.empires,[topId]:{...topEmp,power:Math.min(topEmp.maxPower,topEmp.power+1)}}
@@ -769,7 +771,7 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
   // ── tribut forcé ──────────────────────────────────────────────────────
   if (effet?.type === 'tributForce') {
     const canPay=(game.resources?.or||0)>=3
-    const topEmp=Object.entries(game.empires||{}).sort(([,a],[,b])=>b.power-a.power)[0]
+    const topEmp=Object.entries(game.empires||{}).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)[0]
     return (
       <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
         <button onClick={()=>{ if(!canPay)return; const nr={...game.resources,or:Math.max(0,(game.resources.or||0)-3)}; const ta={...(game.activeEffects?.tributActifs||{}),[topEmp?.[0]]:true,[String(topEmp?.[0])]:true}; onConfirm({...game,resources:nr,activeEffects:{...game.activeEffects,tributActifs:ta}},'A') }}
@@ -856,13 +858,13 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
     const adj=(t,map)=>[[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc])=>map[t.row+dr]?.[t.col+dc]).filter(Boolean)
     const playerTiles=game.map?.flat().filter(t=>t.owner==='player')||[]
     const candidats=[...new Set(playerTiles.flatMap(t=>adj(t,game.map)).filter(t=>!t.explored).map(t=>`${t.row}-${t.col}`))]
-      .map(k=>{ const[r,c]=k.split('-'); return game.map?.[+r]?.[+c] }).filter(Boolean)
-    if(!candidats.length) return <button onClick={()=>onConfirm(game)} style={btnStyle(true)}>Aucune case à explorer — Continuer →</button>
+      .map(k=>{ const[r,cx]=k.split('-'); return game.map?.[+r]?.[+cx] }).filter(Boolean)
+    if(!candidats.length) return <button onClick={()=>onConfirm(game,'A')} style={btnStyle(true)}>Aucune case adjacente non explorée — Continuer →</button>
     return (
-      <div style={{ display:'flex',flexDirection:'column',gap:6 }}>
-        <p style={{ fontSize:12,color:'#475569',margin:0 }}>Choisissez une case à explorer :</p>
-        {candidats.map(t=><button key={`${t.row}-${t.col}`} onClick={()=>{ let nm=game.map.map(r=>r.map(t=>({...t}))); nm[t.row][t.col]={...nm[t.row][t.col],explored:true}; onConfirm({...game,map:nm}) }} style={{ padding:'7px',borderRadius:7,border:'1px solid #e2e8f0',background:'#f8fafc',cursor:'pointer',fontSize:12 }}>Case ({t.col+1},{t.row+1})</button>)}
-      </div>
+      <button onClick={()=>onConfirm({...game,_decouvertePendingCase:true,_decouverteCandidats:candidats},'A_select')}
+        style={btnStyle(true,'#1e3a5f')}>
+        Choisir une case à explorer
+      </button>
     )
   }
 
@@ -937,6 +939,8 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
   useEffect(() => {
     if (startedRef.current) return  // Empêche le double déclenchement (React StrictMode)
     startedRef.current = true
+    // Toujours lire le state FRAIS au démarrage pour capturer tous les effets actifs
+    gsRef.current = useGameStore.getState().game
     console.log('[EMPIRE] Montage - game.empires:', JSON.stringify(Object.fromEntries(Object.entries(gsRef.current?.empires||{}).map(([k,e])=>[k,e.power]))))
     console.log('[EMPIRE] Montage - tributActifs:', JSON.stringify(gsRef.current?.activeEffects?.tributActifs || {}))
     const vals = lancerDesEmpires(4)
@@ -1059,6 +1063,21 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     if (res.type === 'evenement') {
       const gBefore = gsRef.current
       gsRef.current = applyImmediate(res.evenement, gsRef.current)
+      // Surveillance des frontières : déclencher combat si flag présent
+      if (gsRef.current._surveillanceCombat) {
+        const { empireId, targetCase } = gsRef.current._surveillanceCombat
+        const { _surveillanceCombat, ...cleanG } = gsRef.current
+        gsRef.current = cleanG
+        const combatRes = resoudreCombatEmpireVsJoueur(gsRef.current, empireId, targetCase)
+        gsRef.current = { ...gsRef.current, lastEvenementTitre: res.evenement?.titre || '' }
+        updateGame(() => ({ ...gsRef.current }))
+        const effetCalcSurv = calcEffetTexte(res.evenement, gBefore, gsRef.current)
+        addLog(res, i)
+        setPendingEvent({ res, ordre, nextIdx: idx+1, infoOnly: true, effetCalcule: effetCalcSurv })
+        setPendingCombat({ res: { ...combatRes, empireId, targetCase }, ordre, nextIdx: idx+1 })
+        setPhase('waitingCombat')
+        return
+      }
       gsRef.current = { ...gsRef.current, lastEvenementTitre: res.evenement?.titre || '' }
       updateGame(() => ({ ...gsRef.current }))
       // Calculer le texte d'effet concret (diff avant/après)
@@ -1122,7 +1141,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
       if (parts.length) lines.push(`${cfg(id).emoji} ${cfg(id).name} : ${parts.join(', ')}`)
     }
 
-    // Carte : nouvelles cases colonisées
+    // Carte : nouvelles cases colonisées + bâtiments détruits
     const newCases = []
     gAfter.map?.forEach(row => row.forEach(t => {
       const tb = gBefore.map?.[t.row]?.[t.col]
@@ -1134,6 +1153,16 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
       if (!t.owner && tb?.owner && tb.owner !== 'player') {
         const empId = parseInt(tb.owner)
         newCases.push(`${cfg(empId).emoji} ${cfg(empId).name} perd (${t.col+1},${t.row+1})`)
+      }
+      // Bâtiments détruits sur cases joueur
+      if (t.owner === 'player' && tb?.owner === 'player') {
+        const batBefore = tb.buildings || []
+        const batAfter  = t.buildings  || []
+        if (batBefore.length > batAfter.length) {
+          const detruits = [...batBefore]
+          batAfter.forEach(b => { const i = detruits.indexOf(b); if (i>=0) detruits.splice(i,1) })
+          detruits.forEach(b => newCases.push(`Bâtiment détruit : ${b} (${t.col+1},${t.row+1})`))
+        }
       }
     }))
     lines.push(...newCases)
@@ -1217,14 +1246,14 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     if (e.type==='hegemonieEmpire') {
       // Empire le plus puissant colonise les N cases libres les plus proches de son bord
       const nb = e.nb||2
-      const empiresSorted = Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power)
+      const empiresSorted = Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)
       if (!empiresSorted.length) return g
       const [empId] = empiresSorted[0]
       return coloniserCasesProches(g, parseInt(empId), nb)
     }
 
     if (e.type==='allianceImperiale') {
-      const sorted = Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power)
+      const sorted = Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)
       let ne={...g.empires}
       sorted.slice(0,2).forEach(([id])=>{
         const emp=ne[id]||{power:0,maxPower:8}
@@ -1234,32 +1263,40 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     }
 
     if (e.type==='surveillanceFrontieres') {
-      // Empire avec le plus de cases attaque la case joueur la plus exposée
+      // Empire avec le plus de cases
       const empCases = [1,2,3,4].map(id=>({
         id, count:g.map.flat().filter(t=>t.owner===String(id)).length
-      })).sort((a,b)=>b.count-a.count)
+      })).sort((a,b)=>(b.count-a.count)||Math.random()-0.5)
       if (!empCases.length||empCases[0].count===0) return g
       const empId = empCases[0].id
-      // Case joueur avec le moins de voisines joueur
+
       const playerTiles = g.map.flat().filter(t=>t.owner==='player')
-      if (!playerTiles.length) {
-        // coloniser case libre
+      if (!playerTiles.length) return coloniserCasesProches(g, empId, 1)
+
+      const getVoisines = (t,map)=>[[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc])=>map[t.row+dr]?.[t.col+dc]).filter(Boolean)
+      // Zone de contact : cases joueur adjacentes à au moins une case de l'empire
+      const empireTiles = g.map.flat().filter(t=>t.owner===String(empId))
+      const contact = playerTiles.filter(t =>
+        getVoisines(t,g.map).some(v=>v.owner===String(empId))
+      )
+      if (!contact.length) {
+        // Pas de zone de contact → coloniser case libre
         return coloniserCasesProches(g, empId, 1)
       }
-      const getVoisines = (t,map)=>[[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc])=>map[t.row+dr]?.[t.col+dc]).filter(Boolean)
-      const targeted = playerTiles.map(t=>({t,voisinesJoueur:getVoisines(t,g.map).filter(v=>v.owner==='player').length}))
+      // Case joueur en contact avec le moins de voisines joueur (= la plus exposée)
+      const targeted = contact
+        .map(t=>({t, voisinesJoueur:getVoisines(t,g.map).filter(v=>v.owner==='player').length}))
         .sort((a,b)=>a.voisinesJoueur-b.voisinesJoueur)[0]?.t
       if (!targeted) return coloniserCasesProches(g, empId, 1)
-      // Déclencher le combat sera géré dans runResolution via événement spécial
-      // Pour l'instant on retourne le game inchangé (le popup combat sera géré séparément)
-      return g
+      // Stocker la cible pour déclencher le combat dans runResolution
+      return {...g, _surveillanceCombat: { empireId: empId, targetCase: {row:targeted.row, col:targeted.col} }}
     }
 
     if (e.type==='premierssoubresauts') {
       let g2={...g,empires:{...g.empires}}
       for(let id=1;id<=4;id++){const emp=g2.empires[id]||{power:0,maxPower:8};g2.empires[id]={...emp,maxPower:emp.maxPower+2}}
       // Empire le plus puissant colonise 1 case
-      const topEmp = Object.entries(g2.empires).sort(([,a],[,b])=>b.power-a.power)[0]
+      const topEmp = Object.entries(g2.empires).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)[0]
       if(topEmp) g2=coloniserCasesProches(g2,parseInt(topEmp[0]),1)
       return g2
     }
@@ -1275,7 +1312,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     if (e.type==='eveilDesTitans') {
       let g2={...g,empires:{...g.empires}}
       for(let id=1;id<=4;id++){const emp=g2.empires[id]||{power:0,maxPower:8};g2.empires[id]={...emp,maxPower:emp.maxPower+2,power:Math.min(emp.maxPower+2,emp.power+1)}}
-      const weakEmp=Object.entries(g2.empires).sort(([,a],[,b])=>a.power-b.power)[0]
+      const weakEmp=Object.entries(g2.empires).sort(([,a],[,b])=>a.power-b.power || Math.random()-0.5)[0]
       if(weakEmp) g2=coloniserCasesProches(g2,parseInt(weakEmp[0]),2)
       return g2
     }
@@ -1283,7 +1320,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     if (e.type==='tempeteDeFer') {
       let g2={...g,empires:{...g.empires}}
       for(let id=1;id<=4;id++){const emp=g2.empires[id]||{power:0,maxPower:8};g2.empires[id]={...emp,maxPower:emp.maxPower+2}}
-      const sorted=Object.entries(g2.empires).sort(([,a],[,b])=>b.power-a.power)
+      const sorted=Object.entries(g2.empires).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)
       // Top 2 colonisent 2 cases chacun
       for(const [id] of sorted.slice(0,2)) g2=coloniserCasesProches(g2,parseInt(id),2)
       // Plus faible +3 power
@@ -1294,7 +1331,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     }
 
     if (e.type==='migrationsImperiales') {
-      const sorted=Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power)
+      const sorted=Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)
       let g2=g
       for(const [id] of sorted.slice(0,2)) g2=coloniserCasesProches(g2,parseInt(id),1)
       const np={...g2.population,fermier:(g2.population?.fermier||0)+1,ouvrier:(g2.population?.ouvrier||0)+1}
@@ -1302,7 +1339,7 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     }
 
     if (e.type==='retournementDeFortune') {
-      const sorted=Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power)
+      const sorted=Object.entries(g.empires).sort(([,a],[,b])=>b.power-a.power || Math.random()-0.5)
       if(!sorted.length) return g
       const [topId,topEmp]=sorted[0]
       const ne={...g.empires,[topId]:{...topEmp,power:Math.floor(topEmp.power/2)}}
@@ -1401,6 +1438,42 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
   }
 
   function handleEventConfirm(newGame, choiceLabel) {
+    // Cas spécial : découverte → déclencher surlignage de cases non explorées
+    if (newGame._decouvertePendingCase) {
+      const { _decouvertePendingCase, _decouverteCandidats, ...cleanGame } = newGame
+      const candidats = _decouverteCandidats || []
+      onRequestCaseSelect?.(candidats, (tile) => {
+        let nm = cleanGame.map.map(r => r.map(t => ({...t})))
+        // Générer le terrain et les ressources comme l'action Explorer normale
+        const t = nm[tile.row][tile.col]
+        const terrainDie = Math.floor(Math.random()*6)+1
+        const rd = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1]
+        const generated = genererCase(terrainDie, rd, t.hasFleuve, t.isLac, null)
+        nm[tile.row][tile.col] = {
+          ...t, explored: true,
+          terrain: generated.terrain,
+          resource1: generated.resource1,
+          resource2: generated.resource2,
+        }
+        const ng = { ...cleanGame, map: nm }
+        gsRef.current = { ...ng, lastEvenementTitre: pendingEvent?.res?.evenement?.titre || '' }
+        updateGame(() => ({ ...gsRef.current }))
+        onHighlightCase?.(null)
+        const terrain = generated.terrain || '?'
+        const res = [generated.resource1, generated.resource2].filter(Boolean).map(r=>r.type).join(', ')
+        setPendingEvent(prev => ({
+          ...prev,
+          infoOnly: true,
+          effetCalcule: `Case (${tile.col+1},${tile.row+1}) explorée → ${terrain}${res?' + '+res:''}`,
+        }))
+        setPendingCaseSelect(null)
+        setPhase('waitingEvent')
+      })
+      setPendingEvent(prev => ({ ...prev, _awaitingCase: true }))
+      setPhase('awaitingCase')
+      return
+    }
+
     // Cas spécial : soumission des tribus → déclencher surlignage de case
     if (newGame._soumissionPendingCase) {
       const { _soumissionPendingCase, ...cleanGame } = newGame
@@ -1429,7 +1502,7 @@ Case (${tile.col+1},${tile.row+1}) colonisée avec 1 Cabane
           setPhase('waitingEvent')
       })
       setPendingEvent(prev => ({...prev, _awaitingCase: true}))
-      setPhase('waitingEvent')
+      setPhase('awaitingCase')
       return
     }
 

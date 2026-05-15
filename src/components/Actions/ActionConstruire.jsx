@@ -62,12 +62,22 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
   }, [constructTileClicked]) // eslint-disable-line
 
   // Bâtiments pour la case sélectionnée
+  const batimentGratuitActif = game?.activeEffects?.batimentGratuit || false
   const batiments = selectedTile ? getBatimentsDisponibles(selectedTile, game) : []
   const casePleineSelected = (selectedTile?.buildings || []).length >= 3
-  // Si la case est pleine, on montre quand même les bâtiments comme "disponibles" pour le remplacement
-  // SAUF ceux bloqués pour d'autres raisons (max global, terrain incompatible...)
-  const disponibles = batiments.filter(b => b.disponibilite.ok || (casePleineSelected && b.disponibilite.casePleine))
-  const bloques    = batiments.filter(b => !b.disponibilite.ok && !(casePleineSelected && b.disponibilite.casePleine))
+  // Si batimentGratuit actif : les bâtiments bloqués SEULEMENT par ressources deviennent disponibles
+  // Bâtiment gratuit : bloques SEULEMENT par ressources → disponibles
+  const isResBloque = (b) => !b.disponibilite.ok && b.disponibilite.raison?.includes('insuffisantes')
+  const disponibles = batiments.filter(b =>
+    b.disponibilite.ok ||
+    (casePleineSelected && b.disponibilite.casePleine) ||
+    (batimentGratuitActif && isResBloque(b))
+  )
+  const bloques = batiments.filter(b =>
+    !b.disponibilite.ok &&
+    !(casePleineSelected && b.disponibilite.casePleine) &&
+    !(batimentGratuitActif && isResBloque(b))
+  )
 
   function selectBat(batId) {
     setBat(batId)
