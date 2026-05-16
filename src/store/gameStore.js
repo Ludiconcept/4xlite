@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createInitialGameState } from '../data/gameState.js'
 
 const SAVE_KEY = '4xlite_save'
-const SAVE_VERSION = '1.2.0'  // S6v12 - bump pour forcer réinit
+const SAVE_VERSION = '2.0.0'  // S7 - innovations
 
 // ─────────────────────────────────────────────────────────────
 // Sauvegarde / restauration localStorage

@@ -4,6 +4,7 @@ import { ActionRecolter }   from './ActionRecolter.jsx'
 import { ActionExplorer }   from './ActionExplorer.jsx'
 import { ActionColoniser }  from './ActionColoniser.jsx'
 import { ActionGrandir }    from './ActionGrandir.jsx'
+import { ActionEtudier }   from './ActionEtudier.jsx'
 import { ActionConstruire } from './ActionConstruire.jsx'
 import { ActionAttaquer }   from './ActionAttaquer.jsx'
 import { getCasesExplorables, getCasesColonisables } from '../../engine/exploration.js'
@@ -83,7 +84,7 @@ function ActionChoiceDie4({ onSelect, onClose }) {
 
 export function ActionPanel({
   dieValue, onClose, onMarkUsed,
-  onTileHighlight,
+  onTileHighlight, onOpenInnovations,
   explorerTileClicked,   onExplorerTileHandled,
   coloniserTileClicked,  onColoniserTileHandled,
   constructTileClicked,  onConstructTileHandled,
@@ -146,7 +147,7 @@ export function ActionPanel({
     case 'grandir':
       return <ActionGrandir onClose={handleClose} onMarkUsed={onMarkUsed} />
     case 'etudier':
-      return <PlaceholderPanel label="Étudier" emoji="📚" note="Disponible au Sprint 7 (Innovations)." onClose={handleClose} />
+      return <ActionEtudier onClose={handleClose} onMarkUsed={onMarkUsed} onOpenInnovations={onOpenInnovations} />
     default:
       return null
   }

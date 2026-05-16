@@ -11,6 +11,7 @@ import { ActionsSpecialesPanel } from '../Actions/ActionsSpecialesPanel.jsx'
 import { FaminePopup } from '../Actions/FaminePopup.jsx'
 import { getCasesExplorables } from '../../engine/exploration.js'
 import { EffetsActifs } from '../UI/EffetsActifs.jsx'
+import { InnovationsPanel } from '../Innovations/InnovationsPanel.jsx'
 import { TourEmpiresPanel } from '../Empire/TourEmpiresPanel.jsx'
 import { EvenementsPanel } from '../Empire/EvenementsPanel.jsx'
 import { resoudreSurpopulation, appliquerFamine, calcStorageMax } from '../../engine/population.js'
@@ -65,6 +66,7 @@ export function GameScreen() {
 
   const [showJournal,    setShowJournal]    = useState(false)
   const [showEmpires,    setShowEmpires]    = useState(false)
+  const [showInnovations, setShowInnovations] = useState(false)
   const [showEvenements, setShowEvenements] = useState(false)
   const [showSpeciales,  setShowSpeciales]  = useState(false)
   const [famineData,     setFamineData]     = useState(null)
@@ -175,7 +177,7 @@ export function GameScreen() {
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', background:'#f8f7f2', overflow:'hidden' }}>
       <TopBar onRules={()=>alert('Manuel de règles — Sprint 8')} onJournal={()=>setShowJournal(v=>!v)} onEvenements={() => setShowEvenements(v=>!v)} />
-      <ResourceBar onInnovationsClick={()=>alert('Innovations — Sprint 7')} />
+      <ResourceBar onInnovationsClick={() => setShowInnovations(true)} />
 
       <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0, position:'relative' }}>
         <PopulationPanel />
@@ -202,6 +204,7 @@ export function GameScreen() {
               coloniserTileClicked={mapTileClicked}  onColoniserTileHandled={() => setMapTileClicked(null)}
               constructTileClicked={mapTileClicked}  onConstructTileHandled={() => setMapTileClicked(null)}
               attackTileClicked={mapTileClicked}     onAttackTileHandled={() => setMapTileClicked(null)}
+              onOpenInnovations={() => setShowInnovations(true)}
             />
           </div>
         )}
@@ -254,6 +257,10 @@ export function GameScreen() {
           />
         )}
       </div>
+
+      {showInnovations && (
+        <InnovationsPanel onClose={() => setShowInnovations(false)} />
+      )}
 
       {famineData && <FaminePopup famineData={famineData} onConfirm={handleFamineConfirm} />}
       {showJournal    && <JournalPanel     onClose={() => setShowJournal(false)} />}

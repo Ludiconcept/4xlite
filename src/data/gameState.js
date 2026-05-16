@@ -64,6 +64,12 @@ export function createInitialGameState() {
     // Pour chaque innovation : { checked: N, unlocked: bool }
     innovations: createInitialInnovations(),
 
+    // ── Jetons Innovation (gagnés via Action Étudier) ─────────
+    jetons: { A: 0, N: 0, P: 0 },
+
+    // ── Prier (charges) ───────────────────────────────────────
+    prierCharges: 0,
+
     // ── Piste des événements ──────────────────────────────────
     eventTrack: {
       current: 0,    // index de l'événement en cours (0 = aucun déclenché)

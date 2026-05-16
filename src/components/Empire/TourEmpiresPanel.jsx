@@ -531,11 +531,15 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
 
   // ── famine ─────────────────────────────────────────────────────────────
   if (effet?.type === 'famine') {
-    const popTotal = Object.values(game.population||{}).reduce((a,b)=>a+b,0)
-    const popMax = game.map ? calcPopMax(game.map) : 0
-    const excedent = Math.max(0, popTotal - popMax)
+    // Événement Famine : nourrir toute la population (pas seulement l'excédent)
+    // Nobles et Prêtres sont protégés (pas besoin de Nourriture pour eux)
+    const pop = game.population||{}
+    const popProtegee = (pop.noble||0) + (pop.pretre||0)
+    const popANourrir = Math.max(0, Object.values(pop).reduce((a,b)=>a+b,0) - popProtegee)
     const nourritureDispo = game.resources?.nourriture||0
-    const nourritureDemandee = Math.ceil(excedent/5)
+    const nourritureDemandee = Math.ceil(popANourrir/5)
+    // Réutiliser excedent pour la logique de morts (pop non nourrie)
+    const excedent = popANourrir
     const [nourr, setNourr] = useState(Math.min(nourritureDispo, nourritureDemandee))
     const [famPhase, setFamPhase] = useState('nourrir') // nourrir | tuer | fin
     const [pertes, setPertes] = useState({})
@@ -548,8 +552,8 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
     if (famPhase === 'nourrir') return (
       <div style={{ display:'flex',flexDirection:'column',gap:10 }}>
         <div style={{ background:'#fef2f2',border:'1px solid #fca5a5',borderRadius:8,padding:'10px 12px',fontSize:12,color:'#7f1d1d',lineHeight:1.5 }}>
-          Population totale : <strong>{popTotal}</strong> / Cap. max : <strong>{popMax}</strong><br/>
-          Excédent : <strong>{excedent} pop</strong> — Nourriture nécessaire : <strong>{nourritureDemandee}</strong>
+          Population à nourrir : <strong>{popANourrir}</strong> (Nobles et Prêtres protégés)<br/>
+          Nourriture nécessaire : <strong>{nourritureDemandee}</strong> (1 Nourr. = 5 pop)
         </div>
         <div>
           <div style={{ fontSize:11,color:'#94a3b8',marginBottom:6 }}>Nourriture à distribuer ({nourritureDispo} disponible)</div>
@@ -666,9 +670,10 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
 
   // ── révolte populaire (roleplay) ──────────────────────────────────────
   if (effet?.type === 'revoltePopulaire') {
+    const canDistribuer = (game.resources?.or||0) >= 2
     if(step===0) return (
       <div style={{ display:'flex',flexDirection:'column',gap:8 }}>
-        <button onClick={()=>{const nr={...game.resources,or:Math.max(0,(game.resources?.or||0)-2)};onConfirm({...game,resources:nr},'A')}} style={btnStyle(true,'#16a34a')}>Distribuer de l'Or</button>
+        <button onClick={()=>{ if(!canDistribuer)return; const nr={...game.resources,or:Math.max(0,(game.resources?.or||0)-2)};onConfirm({...game,resources:nr},'A')}} disabled={!canDistribuer} style={btnStyle(canDistribuer,'#16a34a')}>Distribuer de l'Or {!canDistribuer?'(Or insuffisant)':''}</button>
         <button onClick={()=>{ const cap=(game.population?.guerrier||0)+(game.population?.marin||0)+(game.population?.chevalier||0); if(cap<3){const keys=Object.keys(game.resources||{}).filter(k=>(game.resources[k]||0)>0);const nr={...game.resources};let n=5;while(n>0&&keys.length){const k=keys[Math.floor(Math.random()*keys.length)];if(nr[k]>0){nr[k]=Math.max(0,nr[k]-1);n--}else keys.splice(keys.indexOf(k),1)};onConfirm({...game,resources:nr},'C');return}; const types=['fermier','ouvrier'];const np={...game.population};for(let k=0;k<2;k++){const eligible=types.filter(t=>(np[t]||0)>0);if(!eligible.length)break;const t=eligible[Math.floor(Math.random()*eligible.length)];np[t]=Math.max(0,(np[t]||0)-1)};onConfirm({...game,population:np},'B') }} style={btnStyle(true,'#dc2626')}>Envoyer l'armée</button>
         <button onClick={()=>{ const keys=Object.keys(game.resources||{}).filter(k=>(game.resources[k]||0)>0);const nr={...game.resources};let n=5;while(n>0&&keys.length){const k=keys[Math.floor(Math.random()*keys.length)];if(nr[k]>0){nr[k]=Math.max(0,nr[k]-1);n--}else keys.splice(keys.indexOf(k),1)};onConfirm({...game,resources:nr},'C') }} style={btnStyle(true,'#475569')}>Ne rien faire</button>
       </div>
@@ -691,7 +696,9 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
   // ── incendie ──────────────────────────────────────────────────────────
   if (effet?.type === 'incendie') {
     const adj=(t,map)=>[[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc])=>map[t.row+dr]?.[t.col+dc]).filter(Boolean)
-    const eligibles=game.map?.flat().filter(t=>t.owner==='player'&&(t.buildings?.length||0)>0&&(t.terrain==='foret'||adj(t,game.map).some(v=>v.terrain==='foret')))||[]
+    // La forêt est une RESSOURCE (resource1.type = 'foret' ou 'foret_gibier'), pas un terrain
+    const hasForet=(t)=>t.resource1?.type==='foret'||t.resource1?.type==='foret_gibier'||t.resource2?.type==='foret'||t.resource2?.type==='foret_gibier'
+    const eligibles=game.map?.flat().filter(t=>t.owner==='player'&&(t.buildings?.length||0)>0&&(hasForet(t)||adj(t,game.map).some(v=>hasForet(v))))||[]
     if(!eligibles.length) return <button onClick={()=>onConfirm(game)} style={btnStyle(true)}>Aucune case éligible — Continuer →</button>
     const [selCase,setSelCase]=useState(null)
     const [selB,setSelB]=useState(null)
