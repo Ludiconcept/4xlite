@@ -11,7 +11,9 @@ import { ActionsSpecialesPanel } from '../Actions/ActionsSpecialesPanel.jsx'
 import { FaminePopup } from '../Actions/FaminePopup.jsx'
 import { getCasesExplorables } from '../../engine/exploration.js'
 import { EffetsActifs } from '../UI/EffetsActifs.jsx'
-import { InnovationsPanel } from '../Innovations/InnovationsPanel.jsx'
+import { ActionEtudier } from '../Actions/ActionEtudier.jsx'
+import { ActionDebug } from '../Actions/ActionDebug.jsx' // ⚠️ DEBUG ONLY
+import { InnovationsPanel, ProspectionDicePopup } from '../Innovations/InnovationsPanel.jsx'
 import { TourEmpiresPanel } from '../Empire/TourEmpiresPanel.jsx'
 import { EvenementsPanel } from '../Empire/EvenementsPanel.jsx'
 import { resoudreSurpopulation, appliquerFamine, calcStorageMax } from '../../engine/population.js'
@@ -67,6 +69,10 @@ export function GameScreen() {
   const [showJournal,    setShowJournal]    = useState(false)
   const [showEmpires,    setShowEmpires]    = useState(false)
   const [showInnovations, setShowInnovations] = useState(false)
+  const [showDebug,       setShowDebug]       = useState(false)
+  const [showEtudier,     setShowEtudier]     = useState(false)
+  const etudierIdxRef = useRef(null) // capture l'idx avant closeAction
+  const [prospectionPending, setProspectionPending] = useState(null) // {innov, tile}
   const [showEvenements, setShowEvenements] = useState(false)
   const [showSpeciales,  setShowSpeciales]  = useState(false)
   const [famineData,     setFamineData]     = useState(null)
@@ -141,7 +147,7 @@ export function GameScreen() {
   function handleTurnEnd() {
     // Lire le state frais pour éviter les stale closures
     const freshGame = useGameStore.getState().game
-    const { newResources, famineData: fd } = resoudreSurpopulation(freshGame.population, freshGame.resources, freshGame.map)
+    const { newResources, famineData: fd } = resoudreSurpopulation(freshGame.population, freshGame.resources, freshGame.map, freshGame.activeEffects)
     const newStorageMax = calcStorageMax(freshGame.map)
     if (fd) {
       updateGame(g => ({ ...g, resources: newResources, storageMax: newStorageMax }))
@@ -205,6 +211,10 @@ export function GameScreen() {
               constructTileClicked={mapTileClicked}  onConstructTileHandled={() => setMapTileClicked(null)}
               attackTileClicked={mapTileClicked}     onAttackTileHandled={() => setMapTileClicked(null)}
               onOpenInnovations={() => setShowInnovations(true)}
+              onOpenEtudier={() => {
+                etudierIdxRef.current = activeActionIdx
+                setShowEtudier(true)
+              }}
             />
           </div>
         )}
@@ -217,6 +227,13 @@ export function GameScreen() {
               diceRolled={diceRolled}
               dicePhase={dicePhase}
               diceValues={diceValues}
+              onHighlightCase={(tiles) => setHighlight(tiles.map(t => ({ ...t, selectHighlight: true })))}
+              onClearHighlight={() => setHighlight([])}
+              onRequestCaseSelect={(eligibles, callback) => {
+                setHighlight(eligibles.map(t => ({ ...t, selectHighlight: true })))
+                setCaseSelectCallback(() => callback)
+                setShowSpeciales(false)
+              }}
             />
           </div>
         )}
@@ -259,8 +276,65 @@ export function GameScreen() {
       </div>
 
       {showInnovations && (
-        <InnovationsPanel onClose={() => setShowInnovations(false)} />
+        <InnovationsPanel
+          onClose={() => setShowInnovations(false)}
+          onRequestCaseSelect={(eligibles, callback) => {
+            setHighlight(eligibles.map(t => ({ ...t, selectHighlight: true })))
+            setCaseSelectCallback(() => callback)
+            setShowInnovations(false)
+          }}
+          onProspectionReady={(innov, tile) => {
+            setProspectionPending({ innov, tile })
+            setHighlight([])
+            setCaseSelectCallback(null)
+          }}
+        />
       )}
+
+      {prospectionPending && (
+        <ProspectionDicePopup
+          innov={prospectionPending.innov}
+          tile={prospectionPending.tile}
+          onDone={(result) => {
+            if (result?.ressource && result?.row !== undefined) {
+              updateGame(g => {
+                const nm = g.map.map(r => r.map(t => ({...t})))
+                if (!nm[result.row]?.[result.col]) return g
+                const t = nm[result.row][result.col]
+                if (!t.resource1) nm[result.row][result.col] = {...t, resource1:{type:result.ressource,quantity:1}}
+                else if (!t.resource2) nm[result.row][result.col] = {...t, resource2:{type:result.ressource,quantity:1}}
+                return {...g, map:nm}
+              })
+            }
+            setProspectionPending(null)
+            setHighlight([])
+          }}
+        />
+      )}
+
+      {showEtudier && (
+        <ActionEtudier
+          onClose={() => setShowEtudier(false)}
+          onMarkUsed={() => {
+            setShowEtudier(false)
+            // Marquer l'action avec l'idx capturé (activeActionIdx peut être null à ce stade)
+            const idx = etudierIdxRef.current
+            if (idx !== null) {
+              setUsedActions(prev => prev.includes(idx) ? prev : [...prev, idx])
+              etudierIdxRef.current = null
+            }
+          }}
+          onOpenInnovations={() => { setShowEtudier(false); setShowInnovations(true) }}
+        />
+      )}
+
+      {/* ⚠️ DEBUG ONLY — Supprimer avant production */}
+      <button onClick={() => setShowDebug(true)} style={{ position:'fixed', bottom:8, left:8,
+        background:'#dc2626', color:'white', border:'none', borderRadius:8,
+        padding:'4px 10px', fontSize:11, fontWeight:700, cursor:'pointer', zIndex:500, opacity:0.8 }}>
+        🐞 Debug
+      </button>
+      {showDebug && <ActionDebug onClose={() => setShowDebug(false)} />}
 
       {famineData && <FaminePopup famineData={famineData} onConfirm={handleFamineConfirm} />}
       {showJournal    && <JournalPanel     onClose={() => setShowJournal(false)} />}

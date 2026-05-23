@@ -30,7 +30,7 @@ function EmpireDie({ value, rolling, active, size=52 }) {
     return () => clearInterval(interval.current)
   }, [rolling, value])
 
-  const color = value===6?'#dc2626':value===5?'#7c3aed':value?(EMPIRE_CONFIG[value]?.color||'#475569'):'#475569'
+  const color = value==='✕'?'#7c3aed':value===6?'#dc2626':value===5?'#7c3aed':value?(EMPIRE_CONFIG[value]?.color||'#475569'):'#475569'
   return (
     <div style={{ width:size, height:size, borderRadius:10, border:`2px solid ${active?'#e07b1a':color}`, background:active?'#fff7ed':'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:Math.floor(size*.44), fontWeight:700, color:active?'#e07b1a':color, transform:bounce?'scale(1.18)':'scale(1)', transition:'transform .12s', flexShrink:0 }}>
       {display}
@@ -899,7 +899,10 @@ function EvenementPanel({ evenement, game, onConfirm, infoOnly=false, showEffetI
             if(!playerTiles2.length) continue
             const dist=(a,b)=>Math.abs(a.row-b.row)+Math.abs(a.col-b.col)
             const target=empTiles.reduce((best,t)=>{ const d=Math.min(...playerTiles2.map(p=>dist(t,p))); return d<best.d?{t,d}:best },{t:null,d:Infinity}).t
-            if(target){g2.map[target.row][target.col]={...g2.map[target.row][target.col],owner:null,buildings:[],explored:true}}
+            if(target){
+            const wasExplored = g2.map[target.row][target.col].explored
+            g2.map[target.row][target.col]={...g2.map[target.row][target.col],owner:null,buildings:[],explored:wasExplored||false}
+          }
             const emp=g2.empires[empId]||{power:0,maxPower:8}
             g2.empires[empId]={...emp,power:Math.max(0,emp.power-2)}
           }
@@ -950,6 +953,16 @@ export function TourEmpiresPanel({ onClose, onHighlightCase, onRequestCaseSelect
     gsRef.current = useGameStore.getState().game
     console.log('[EMPIRE] Montage - game.empires:', JSON.stringify(Object.fromEntries(Object.entries(gsRef.current?.empires||{}).map(([k,e])=>[k,e.power]))))
     console.log('[EMPIRE] Montage - tributActifs:', JSON.stringify(gsRef.current?.activeEffects?.tributActifs || {}))
+    // Prosélytisme : les empires passent ce tour
+    if (gsRef.current.activeEffects?.proselytismeActif) {
+      gsRef.current = { ...gsRef.current, activeEffects: { ...gsRef.current.activeEffects, proselytismeActif: false } }
+      updateGame(() => ({ ...gsRef.current }))
+      setRolling(false)
+      setDesValues(['✕','✕','✕','✕'])
+      setPhase('proselytisme')
+      pause(2000).then(() => finalize([]))
+      return
+    }
     const vals = lancerDesEmpires(4)
     valsRef.current = vals  // stocker pour les reprises après popup
     setTimeout(() => {
@@ -1556,14 +1569,20 @@ Case (${tile.col+1},${tile.row+1}) colonisée avec 1 Cabane
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <span style={{ fontSize:12,fontWeight:500,color:'#1e293b' }}>
             {phase==='rolling'?'🎲 Tour des empires — lancer…'
+             :phase==='proselytisme'?'🙏 Prosélytisme — les Empires passent leur tour'
              :phase==='done'?'✓ Tour des empires terminé'
              :phase==='defaite'?'💀 Défaite !'
              :phase==='waitingCombat'?'⚔️ Vous êtes attaqué !'
              :phase==='waitingEvent'?'📋 Événement'
              :'⚙️ Résolution…'}
           </span>
-          {phase==='done' && (
-            <button onClick={onClose} style={{ padding:'5px 14px',borderRadius:7,border:'none',background:'#1e3a5f',color:'white',fontSize:11,fontWeight:500,cursor:'pointer' }}>
+          {(phase==='done' || phase==='proselytisme') && (
+            <button onClick={phase==='done'?onClose:undefined}
+              disabled={phase==='proselytisme'}
+              style={{ padding:'5px 14px',borderRadius:7,border:'none',
+                background:phase==='done'?'#1e3a5f':'#94a3b8',
+                color:'white',fontSize:11,fontWeight:500,
+                cursor:phase==='done'?'pointer':'default' }}>
               Mon tour →
             </button>
           )}

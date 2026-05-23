@@ -53,7 +53,7 @@ export const ACTIONS_SPECIALES = {
   },
   drainage: {
     id: 'drainage', name: 'Drainage', emoji: '🌿',
-    description: 'Convertit 1 case Marais en Plaine. Perd 1 Ouvrier.',
+    description: 'Convertit 1 case Marais en Plaine.',
     cout: { bois: 3 },
     coutPop: { ouvrier: 1 },
     maxParTour: null,
@@ -61,11 +61,36 @@ export const ACTIONS_SPECIALES = {
   },
   irrigation: {
     id: 'irrigation', name: 'Irrigation', emoji: '💧',
-    description: 'Convertit 1 case Désert en Plaine. Perd 1 Fermier.',
+    description: 'Convertit 1 case Désert en Plaine.',
     cout: { argile: 3 },
     coutPop: { fermier: 1 },
     maxParTour: null,
     requiresInnovation: 'irrigation',
+  },
+  reseauDefensif: {
+    id: 'reseauDefensif', name: 'Réseau défensif', emoji: '🗼',
+    description: 'Placer 3 Tours de guet sur 3 cases.',
+    cout: { bois: 5 },
+    coutPop: {},
+    maxParTour: null,
+    requiresInnovation: 'reseauDefensif',
+    usageUnique: true,
+  },
+  adouber: {
+    id: 'adouber', name: 'Adouber', emoji: '🐴',
+    description: 'Transforme 1 Guerrier en Chevalier. Limité à 1 Chevalier par case contrôlée.',
+    cout: { fer: 1, or: 1 },
+    coutPop: { guerrier: 1 },
+    maxParTour: null,
+    requiresInnovation: 'chevalerie',
+  },
+  anoblir: {
+    id: 'anoblir', name: 'Anoblir', emoji: '👑',
+    description: 'Transforme 1 Guerrier, Artisan ou Prêtre en Noble. Gratuit.',
+    cout: {},
+    coutPop: {},
+    maxParTour: null,
+    requiresBuilding: 'palaisAileGauche',
   },
   martyrs: {
     id: 'martyrs', name: 'Martyrs', emoji: '✝️',
@@ -118,10 +143,14 @@ export function peutUtiliserAction(actionId, game, usedThisTurn = {}) {
     if (!hasBuilding) return { ok: false, raison: `Nécessite : ${action.requiresBuilding}.` }
   }
 
-  // Max par tour
+  // Max par tour (Bureaucratie double la limite de Grandir et Recruter)
   if (action.maxParTour) {
-    if ((usedThisTurn[actionId] || 0) >= action.maxParTour)
-      return { ok: false, raison: 'Déjà utilisé ce tour.' }
+    const bureaucratie = game?.activeEffects?.bureaucratie
+    const max = (actionId === 'grandir' || actionId === 'recruter') && bureaucratie
+      ? action.maxParTour * 2
+      : action.maxParTour
+    if ((usedThisTurn[actionId] || 0) >= max)
+      return { ok: false, raison: max > 1 ? `Déjà utilisé ${max} fois ce tour.` : 'Déjà utilisé ce tour.' }
   }
 
   // Armer : grisé si déjà actif
@@ -131,6 +160,26 @@ export function peutUtiliserAction(actionId, game, usedThisTurn = {}) {
   // Servage : grisé si déjà actif
   if (actionId === 'servage' && game?.activeEffects?.servageActif)
     return { ok: false, raison: 'Servage déjà actif : 3 dés au prochain lancer.' }
+
+  // Réseau défensif : usage unique dans la partie
+  if (actionId === 'reseauDefensif' && game?.activeEffects?.reseauDefensifUsed)
+    return { ok: false, raison: 'Déjà utilisé dans cette partie.' }
+
+  // Adouber : limite 1 Chevalier par case contrôlée
+  if (actionId === 'adouber') {
+    const nbCases = game.map?.flat().filter(t => t.owner === 'player').length || 0
+    const nbChevaliers = game.population?.chevalier || 0
+    if (nbChevaliers >= nbCases) return { ok: false, raison: `Limite atteinte (${nbChevaliers}/${nbCases} Chevaliers/cases).` }
+    if ((game.population?.guerrier || 0) < 1) return { ok: false, raison: 'Aucun Guerrier à convertir.' }
+    if ((game.resources?.fer || 0) < 1 || (game.resources?.or || 0) < 1) return { ok: false, raison: 'Nécessite 1 Fer + 1 Or.' }
+  }
+
+  // Anoblir : nécessite au moins 1 Guerrier, Artisan ou Prêtre
+  if (actionId === 'anoblir') {
+    const pop = game.population || {}
+    if (!pop.guerrier && !pop.artisan && !pop.pretre)
+      return { ok: false, raison: 'Aucune population à convertir.' }
+  }
 
   // Commerce : besoin d'artisans
   if (actionId === 'commerce') {

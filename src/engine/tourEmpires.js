@@ -222,8 +222,7 @@ export function appliquerEffetsNextTurn(game) {
   if (nte.secheresse)       g = {...g, activeEffects:{...g.activeEffects, secheresse:true}}
   if (nte.inondation)       g = {...g, activeEffects:{...g.activeEffects, inondation:true}}
   if (nte.batimentGratuit)  g = {...g, activeEffects:{...g.activeEffects, batimentGratuit:true}}
-  // Réinitialiser eclipseActive (déjà fait dans finalize, sécurité)
-  g = {...g, activeEffects:{...g.activeEffects, eclipseActive:false}}
+  // eclipseActive est réinitialisé dans finalize() — pas ici
   return {...g, nextTurnEffects:{}}
 }
 

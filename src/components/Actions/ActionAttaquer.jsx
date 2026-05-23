@@ -42,13 +42,16 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
   const updateGame = useGameStore(s => s.updateGame)
   const addEntry   = useLogStore(s => s.addEntry)
 
-  const [phase, setPhase]     = useState('selectTarget')
-  const [target, setTarget]   = useState(null)
-  const [units, setUnits]     = useState({ guerrier: 0 })
-  const [result, setResult]   = useState(null)
-  const [rolling, setRolling] = useState(false)
-  const [dieAtt, setDieAtt]   = useState(null)
-  const [dieDef, setDieDef]   = useState(null)
+  const [phase, setPhase]         = useState('selectTarget')
+  const [target, setTarget]       = useState(null)
+  const [units, setUnits]         = useState({ guerrier: 0, marin: 0, chevalier: 0, pretre: 0 })
+  const [result, setResult]       = useState(null)
+  const [rolling, setRolling]     = useState(false)
+  const [dieAtt, setDieAtt]       = useState(null)
+  const [dieDef, setDieDef]       = useState(null)
+  const [tactiqueOn, setTactique] = useState(false)
+  const [assiegerOn, setAssieger] = useState(false)
+  const [repliDone, setRepli]     = useState(false)
 
   if (!game) return null
 
@@ -57,9 +60,17 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
   const armerActif   = game.activeEffects?.armerActif || false
   const [soignerUsed, setSoignerUsed] = useState(false)
   const empiresDir   = getEmpiresAttaquablesDirectement(game.map)
-  const maxGuerriers = game.population.guerrier || 0
-  const totalMob     = units.guerrier || 0
+  const ae           = game.activeEffects || {}
+  // Populations disponibles
+  const maxGuerriers = game.population.guerrier  || 0
+  const maxMarins    = ae.navigation   ? (game.population.marin    || 0) : 0
+  const maxChevaliers= ae.chevalerie   ? (game.population.chevalier|| 0) : 0
+  const maxPretres   = ae.inquisition  ? (game.population.pretre   || 0) : 0
+  const prierCharges = game.prierCharges || 0
+  const totalMob     = (units.guerrier||0) + (units.marin||0) + (units.chevalier||0) + (units.pretre||0)
   const empire       = target ? (game.empires?.[target.empireId] || { power:2, maxPower:8 }) : null
+  const terrain      = target?.tile?.terrain || 'plaine'
+  const hasFleuve    = target?.tile?.hasFleuve || false
 
   useEffect(() => {
     if (!attackTileClicked || phase !== 'selectTarget') return
@@ -68,23 +79,51 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
     onAttackTileHandled?.()
   }, [attackTileClicked]) // eslint-disable-line
 
-  function selectCase(tile) { setTarget({ type:'case', key:`${tile.row}-${tile.col}`, tile, empireId:tile.owner }); setUnits({ guerrier:0 }); setPhase('mobilise') }
-  function selectEmpire(id) { setTarget({ type:'empire', empireId:id }); setUnits({ guerrier:0 }); setPhase('mobilise') }
-  function adjustUnit(d)    { setUnits({ guerrier: Math.max(0, Math.min(maxGuerriers, (units.guerrier||0)+d)) }) }
+  function selectCase(tile) { setTarget({ type:'case', key:`${tile.row}-${tile.col}`, tile, empireId:tile.owner }); setUnits({ guerrier:0, marin:0, chevalier:0, pretre:0 }); setPhase('mobilise') }
+  function selectEmpire(id) { setTarget({ type:'empire', empireId:id }); setUnits({ guerrier:0, marin:0, chevalier:0, pretre:0 }); setPhase('mobilise') }
+  function adjustUnit(type, max, d) { setUnits(prev => ({ ...prev, [type]: Math.max(0, Math.min(max, (prev[type]||0)+d)) })) }
+
+  function appliquerRepli() {
+    // Repli stratégique : la case passe sous contrôle ennemi, empire -3 puissance, 0 pertes
+    const empId = target.empireId
+    updateGame(g => {
+      const nm = g.map.map(r => r.map(t => ({ ...t })))
+      if (target.type === 'case') {
+        nm[target.tile.row][target.tile.col] = {
+          ...nm[target.tile.row][target.tile.col],
+          owner: String(empId),
+          playerBuildingsPreserved: nm[target.tile.row][target.tile.col].buildings || [],
+          buildings: [],
+        }
+      }
+      const ne = { ...g.empires }
+      if (ne[empId]) ne[empId] = { ...ne[empId], power: Math.max(0, ne[empId].power - 3) }
+      return { ...g, map: nm, empires: ne }
+    })
+    setRepli(true); setPhase('result')
+    onMarkUsed?.(); onClose()
+  }
 
   async function lancerCombat() {
     if (totalMob === 0) return
     setPhase('rolling'); setRolling(true); setDieAtt(null); setDieDef(null)
-    await new Promise(r => setTimeout(r, 700))
+    await new Promise(r => setTimeout(r, tactiqueOn ? 100 : 700))
     const tile = target.type === 'case' ? target.tile : null
     const res  = resoudreCombat({
       unitsAttaquant: units,
       unitsDefenseur: empire?.power ?? 2,
       terrain: tile?.terrain || 'plaine',
       hasFleuve: tile?.hasFleuve || false,
-      bonusDefense: tile ? getBonusDefensif(tile) : 0,
+      bonusDefense: tile ? getBonusDefensif(tile, ae) : 0,
+      activeEffects: ae,
+      tactiqueActif: tactiqueOn,
+      assiegerActif: assiegerOn,
     })
     setDieAtt(res.de1); setDieDef(res.de2); setRolling(false)
+    if (assiegerOn) {
+      // Consommer 3 Bois pour Assiéger
+      updateGame(g => ({ ...g, resources: { ...g.resources, bois: Math.max(0, (g.resources.bois||0)-3) } }))
+    }
     await new Promise(r => setTimeout(r, 400))
     setResult(res); setPhase('result')
   }
@@ -147,7 +186,7 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
                       <span>{cfg?.emoji}</span>
                       <div>
                         <div style={{ fontSize:12, fontWeight:500 }}>({t.col+1},{t.row+1}) — {TERRAIN_NAMES[t.terrain]}</div>
-                        <div style={{ fontSize:11, color:'#64748b' }}>{cfg?.name} · Défense +{getBonusDefensif(t)}</div>
+                        <div style={{ fontSize:11, color:'#64748b' }}>{cfg?.name} · Défense +{getBonusDefensif(t, ae)}</div>
                       </div>
                     </button>
                   )})}
@@ -176,24 +215,57 @@ export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked,
       {/* MOBILISATION */}
       {phase === 'mobilise' && target && empire && (
         <>
+          {/* Cible */}
           <div style={{ background:EMPIRE_CONFIG[target.empireId]?.colorLight, border:`1px solid ${EMPIRE_CONFIG[target.empireId]?.color}40`, borderRadius:8, padding:'8px 10px', fontSize:12 }}>
             <div style={{ fontWeight:500, color:EMPIRE_CONFIG[target.empireId]?.colorText }}>
               {EMPIRE_CONFIG[target.empireId]?.emoji} {target.type==='case' ? `(${target.tile.col+1},${target.tile.row+1}) — ${TERRAIN_NAMES[target.tile?.terrain]}` : `Attaque directe — ${EMPIRE_CONFIG[target.empireId]?.name}`}
             </div>
-            <div style={{ color:'#64748b', marginTop:2 }}>Puissance ennemie : {empire.power} {target.type==='case'&&getBonusDefensif(target.tile)>0?`· Défense +${getBonusDefensif(target.tile)}`:''}</div>
+            <div style={{ color:'#64748b', marginTop:2 }}>Puissance ennemie : {empire.power}{target.type==='case'&&getBonusDefensif(target.tile,ae)>0?` · Défense +${getBonusDefensif(target.tile,ae)}`:''}</div>
           </div>
-          <div style={{ background:'#f8fafc', border:'0.5px solid #e2e8f0', borderRadius:7, padding:'8px 10px', fontSize:12 }}>
-            <div style={{ fontWeight:500, color:'#374151', marginBottom:4 }}>Formule de combat</div>
-            <div style={{ color:'#dc2626' }}>Vous : 1D6 + {totalMob} guerrier{totalMob>1?'s':''} = <strong>{totalMob} + D6</strong></div>
-            <div style={{ color:'#475569', marginTop:2 }}>Ennemi : 1D6 + {empire.power} puissance{target.type==='case'&&getBonusDefensif(target.tile)>0?` + ${getBonusDefensif(target.tile)} défense`:''}</div>
-            <div style={{ fontSize:11, color:'#94a3b8', marginTop:3 }}>Égalité = défenseur gagne</div>
+
+          {/* Repli stratégique */}
+          {ae.repliStrategique && target.type==='case' && (
+            <button onClick={appliquerRepli} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #f59e0b', background:'#fffbeb', color:'#92400e', fontSize:11, cursor:'pointer', fontWeight:500 }}>
+              🏃 Repli — case perdue, empire -3 Puissance, 0 pertes
+            </button>
+          )}
+
+          {/* Tactique */}
+          {ae.tactique && (
+            <button onClick={() => setTactique(v => !v)} style={{ padding:'6px 10px', borderRadius:8, border:`1.5px solid ${tactiqueOn?'#7c3aed':'#e2e8f0'}`, background:tactiqueOn?'#ede9fe':'white', color:tactiqueOn?'#5b21b6':'#475569', fontSize:11, cursor:'pointer', fontWeight:500 }}>
+              ♟️ Tactique {tactiqueOn ? 'ON — Dé fixé à 3' : 'OFF'}
+            </button>
+          )}
+
+          {/* Assiéger */}
+          {ae.techniquesDeSiege && (
+            <button onClick={() => setAssieger(v => !v)} disabled={(game.resources.bois||0)<3} style={{ padding:'6px 10px', borderRadius:8, border:`1.5px solid ${assiegerOn?'#dc2626':'#e2e8f0'}`, background:assiegerOn?'#fef2f2':'white', color:assiegerOn?'#dc2626':'#475569', fontSize:11, cursor:'pointer', fontWeight:500, opacity:(game.resources.bois||0)<3?0.4:1 }}>
+              🏹 Assiéger {assiegerOn ? 'ON (+3 attaque, -3 Bois)' : 'OFF'} — Bois: {game.resources.bois||0}
+            </button>
+          )}
+
+          {/* Unités */}
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            <UnitRow type="guerrier" emoji="⚔️" label="Guerriers" max={maxGuerriers} value={units.guerrier||0} onChange={d => adjustUnit('guerrier', maxGuerriers, d)} />
+            {maxMarins > 0 && <UnitRow type="marin" emoji="⛵" label="Marins" max={maxMarins} value={units.marin||0} onChange={d => adjustUnit('marin', maxMarins, d)} />}
+            {maxChevaliers > 0 && <UnitRow type="chevalier" emoji="🐴" label="Chevaliers" max={maxChevaliers} value={units.chevalier||0} onChange={d => adjustUnit('chevalier', maxChevaliers, d)} />}
+            {maxPretres > 0 && <UnitRow type="pretre" emoji="✝️" label="Prêtres" max={maxPretres} value={units.pretre||0} onChange={d => adjustUnit('pretre', maxPretres, d)} />}
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ flex:1, fontSize:13 }}>⚔️ Guerriers ({maxGuerriers} dispo.)</span>
-            <button onClick={() => adjustUnit(-1)} disabled={totalMob===0} style={{ width:24, height:24, borderRadius:5, border:'1px solid #e2e8f0', background:'white', cursor:totalMob>0?'pointer':'default', fontSize:16, opacity:totalMob===0?0.3:1, display:'flex', alignItems:'center', justifyContent:'center' }}>−</button>
-            <span style={{ width:24, textAlign:'center', fontWeight:600, fontSize:14, color:totalMob>0?'#dc2626':'#94a3b8' }}>{totalMob}</span>
-            <button onClick={() => adjustUnit(1)} disabled={totalMob>=maxGuerriers} style={{ width:24, height:24, borderRadius:5, border:'1px solid #e2e8f0', background:'white', cursor:totalMob<maxGuerriers?'pointer':'default', fontSize:16, opacity:totalMob>=maxGuerriers?0.3:1, display:'flex', alignItems:'center', justifyContent:'center' }}>+</button>
+
+          {/* Prier — annuler le combat */}
+          {prierCharges > 0 && (
+            <button onClick={() => {
+              updateGame(g => ({ ...g, prierCharges: Math.max(0, (g.prierCharges||0)-1) }))
+              onClose()
+            }} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #7c3aed', background:'#faf5ff', color:'#5b21b6', fontSize:11, cursor:'pointer', fontWeight:500 }}>
+              🙏 Prier — Annuler cette attaque ({prierCharges} charge{prierCharges>1?'s':''})
+            </button>
+          )}
+
+          <div style={{ background:'#f8fafc', border:'0.5px solid #e2e8f0', borderRadius:7, padding:'6px 10px', fontSize:11, color:'#64748b' }}>
+            Vous : {tactiqueOn ? '3 (Tactique)' : 'D6'} + {totalMob} unités{ae.strategieOffensive?' +1':''}{ae.meilleuresArmes?' +1':''}{assiegerOn?' +3 (Siège)':''}
           </div>
+
           <div style={{ display:'flex', gap:8 }}>
             <button onClick={() => setPhase('selectTarget')} style={{ flex:1, padding:'7px 0', borderRadius:8, border:'1px solid #e2e8f0', background:'white', color:'#475569', fontSize:12, cursor:'pointer' }}>← Retour</button>
             <button onClick={lancerCombat} disabled={totalMob===0} style={{ flex:2, padding:'7px 0', borderRadius:8, border:'none', background:totalMob>0?'#dc2626':'#e2e8f0', color:'white', fontSize:13, fontWeight:500, cursor:totalMob>0?'pointer':'default' }}>⚔️ Lancer le combat</button>

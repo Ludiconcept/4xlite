@@ -86,7 +86,9 @@ export function DiceZone({
   const values        = (externalDiceValues && externalDiceValues.length > 0) ? externalDiceValues : storeValues
   const equiperActif  = game?.activeEffects?.equiperActif || false
   const servageActif    = game?.activeEffects?.servageActif || false
+  const prierCharges    = game?.prierCharges || 0
   const etudierGratuit  = game?.activeEffects?.etudierGratuit || false
+  const genieCivilDe   = game?.nextTurnEffects?.genieCivilDe   || false
   const isAnimating   = rolling.length > 0
 
   // Si Servage activé pendant la phase 'rolled', augmenter maxSelect immédiatement
@@ -120,6 +122,11 @@ export function DiceZone({
     if (etudierGratuit) {
       actions = [...actions, { dieIndex: 99, value: 5, etudierGratuit: true }]
       updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, etudierGratuit: false } }))
+    }
+    // genieCivilDe : ajouter un dé fixe 3 aux actions (au tour du déblocage seulement)
+    if (genieCivilDe) {
+      actions = [...actions, { dieIndex: 98, value: 3, genieCivilDe: true }]
+      updateGame(g => ({ ...g, nextTurnEffects: { ...g.nextTurnEffects, genieCivilDe: false } }))
     }
     const newTurn = (game?.turn || 0) + 1
     setTurnNumber(newTurn)
@@ -160,6 +167,7 @@ export function DiceZone({
               <span style={{ fontSize:13, color:'#64748b', fontWeight:500 }}>Tour {turnNumber} — En attente</span>
               {servageActif && <span style={{ fontSize:11, color:'#1e40af', background:'#eff6ff', border:'1px solid #93c5fd', borderRadius:6, padding:'2px 8px' }}>⛓️ Servage : 3 dés</span>}
               {etudierGratuit && <span style={{ fontSize:11, color:'#92400e', background:'#fffbeb', border:'1px solid #f59e0b', borderRadius:6, padding:'2px 8px' }}>📜 Étudier gratuit</span>}
+              {genieCivilDe && <span style={{ fontSize:11, color:'#1e40af', background:'#eff6ff', border:'1px solid #93c5fd', borderRadius:6, padding:'2px 8px' }}>⚙️ Génie civil</span>}
               <button onClick={handleRoll} style={{ background:'#e07b1a', color:'white', border:'none', padding:'8px 22px', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:7 }}>
                 <span style={{ fontSize:16 }}>🎲</span> Lancer les dés
               </button>
@@ -219,6 +227,19 @@ export function DiceZone({
                 </div>
               )}
 
+              {/* Dé fixe Génie civil 3 */}
+              {genieCivilDe && !isAnimating && (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                  <div style={{ height:16 }} />
+                  <div style={{ width:48, height:48, borderRadius:8, background:'#eff6ff', border:'2px solid #93c5fd', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700, color:'#1e40af', position:'relative' }}>
+                    3
+                    <span style={{ position:'absolute', top:-6, right:-6, fontSize:10, background:'#3b82f6', color:'white', borderRadius:4, padding:'1px 3px' }}>🔒</span>
+                  </div>
+                  <div style={{ height:16 }} />
+                  <span style={{ fontSize:9, color:'#1e40af', textAlign:'center', maxWidth:52, lineHeight:1.2, fontWeight:500 }}>Génie civil</span>
+                </div>
+              )}
+
               {/* Dé fixe Étudier si etudierGratuit actif */}
               {etudierGratuit && !isAnimating && (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
@@ -230,6 +251,17 @@ export function DiceZone({
                   <div style={{ height:16 }} />
                   <span style={{ fontSize:9, color:'#92400e', textAlign:'center', maxWidth:52, lineHeight:1.2, fontWeight:500 }}>Étudier</span>
                 </div>
+              )}
+
+              {/* Bouton Prier — relancer les dés */}
+              {prierCharges > 0 && !isAnimating && (
+                <button onClick={() => {
+                  updateGame(g => ({ ...g, prierCharges: Math.max(0, (g.prierCharges||0)-1) }))
+                  rollDice(maxSelect)
+                  setSelected([])
+                }} style={{ marginLeft:4, background:'#faf5ff', border:'1.5px solid #7c3aed', color:'#5b21b6', padding:'7px 12px', borderRadius:8, fontSize:11, fontWeight:500, cursor:'pointer', flexShrink:0 }}>
+                  🙏 Prier ({prierCharges})
+                </button>
               )}
 
               {selected.length === maxSelect && !isAnimating && (

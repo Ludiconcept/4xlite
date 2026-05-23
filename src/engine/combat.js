@@ -18,7 +18,8 @@ import { genererCase } from './exploration.js'
 export const COEFF_TERRAIN = {
   guerrier: () => 1,
   marin:    (terrain, hasFleuve) => (hasFleuve || terrain === 'lac') ? 2 : 0.5,
-  chevalier:(terrain)            => (terrain === 'plaine' || terrain === 'desert') ? 2 : 0.5,
+  chevalier:(terrain)            => (terrain === 'plaine' || terrain === 'desert') ? 2 : 1,
+  pretre:   ()                   => 1, // Inquisition : vaut 1 guerrier
 }
 
 /**
@@ -39,13 +40,15 @@ export function calculerForce(units, terrain, hasFleuve) {
 /**
  * Retourne les bonus défensifs d'une case (bâtiments).
  */
-export function getBonusDefensif(tile) {
+export function getBonusDefensif(tile, activeEffects = {}) {
   if (!tile || !tile.owner) return 0
   const buildings = tile.buildings || []
   let bonus = 0
   if (buildings.includes('tourDeGuet')) bonus += 2
-  if (buildings.includes('forteresse')) bonus += 5
-  if (buildings.includes('palais'))     bonus += 3 // Architecture royale
+  // Stratégie défensive : +6 au lieu de +5
+  if (buildings.includes('forteresse')) bonus += activeEffects.strategieDefensive ? 6 : 5
+  // Architecture royale : palais compte comme forteresse
+  if (buildings.includes('palais') && activeEffects.architectureRoyale) bonus += 5
   return bonus
 }
 
@@ -87,28 +90,50 @@ export function getEmpiresAttaquablesDirectement(map) {
  * Résout un combat joueur vs empire (pour une case).
  * Returns { attaquantGagne, scoreAttaquant, scoreDefenseur, pertesAttaquant, pertesDefenseur, bonusDefense }
  */
-export function resoudreCombat({ unitsAttaquant, unitsDefenseur, terrain, hasFleuve, empireBonus = 0, bonusDefense = 0 }) {
-  const de1 = Math.floor(Math.random() * 6) + 1
-  const de2 = Math.floor(Math.random() * 6) + 1
+export function resoudreCombat({
+  unitsAttaquant, unitsDefenseur, terrain, hasFleuve,
+  empireBonus = 0, bonusDefense = 0,
+  activeEffects = {}, tactiqueActif = false, assiegerActif = false,
+}) {
+  const de1Raw = tactiqueActif ? 3 : Math.floor(Math.random() * 6) + 1
+  const de2    = Math.floor(Math.random() * 6) + 1
 
   const forceAtt = calculerForce(unitsAttaquant, terrain, hasFleuve)
   const forceDef = typeof unitsDefenseur === 'number'
-    ? unitsDefenseur   // empire : puissance directe
+    ? unitsDefenseur
     : calculerForce(unitsDefenseur, terrain, hasFleuve)
 
-  const scoreAtt = de1 + forceAtt
-  const scoreDef = de2 + forceDef + bonusDefense + empireBonus
+  // Bonus innovations attaquant
+  let bonusAtt = 0
+  if (activeEffects.strategieOffensive) bonusAtt += 1
+  if (activeEffects.meilleuresArmes)    bonusAtt += 1
+  if (assiegerActif)                    bonusAtt += 3
+  // Inquisition : +1 si au moins 1 Prêtre engagé en attaque
+  if (activeEffects.inquisition && (unitsAttaquant.pretre || 0) > 0) bonusAtt += 1
 
-  const attaquantGagne = scoreAtt > scoreDef // égalité → défenseur gagne
+  // Bonus innovations défenseur (joueur en défense)
+  let bonusDef = bonusDefense
+  if (activeEffects.meilleuresArmes) bonusDef += 1
+  // Stratégie défensive : bonus forteresse amélioré (géré dans getBonusDefensif)
 
-  // Pertes symétriques : chaque camp perd score adverse / 2 arrondi sup.
-  const pertesAttaquant  = Math.ceil(scoreDef / 2)
-  const pertesDefenseur  = Math.ceil(scoreAtt / 2)
+  const scoreAtt = de1Raw + forceAtt + bonusAtt
+  const scoreDef = de2    + forceDef + bonusDef + empireBonus
+
+  const attaquantGagne = scoreAtt > scoreDef
+
+  // Pertes symétriques
+  let pertesAttaquant = Math.ceil(scoreDef / 2)
+  let pertesDefenseur = Math.ceil(scoreAtt / 2)
+
+  // Réduction de pertes (Culte des Héros, Élus des Dieux)
+  const reductionPertes = (activeEffects.culteDesHeros ? 1 : 0) + (activeEffects.elusDesDieux ? 1 : 0)
+  pertesAttaquant = Math.max(0, pertesAttaquant - reductionPertes)
 
   return {
     attaquantGagne, scoreAttaquant: scoreAtt, scoreDefenseur: scoreDef,
     pertesAttaquant, pertesDefenseur,
-    de1, de2, forceAtt, forceDef,
+    de1: de1Raw, de2, forceAtt, forceDef,
+    tactiqueActif, bonusAtt, reductionPertes,
   }
 }
 

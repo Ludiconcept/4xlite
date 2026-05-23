@@ -421,6 +421,10 @@ export function Tile({
       {/* Bâtiments */}
       {buildings?.length > 0 && explored && (
         <>
+          {/* 4e bâtiment (Génie civil) — en haut à gauche */}
+          {buildings[3] && (
+            <div style={{ gridColumn:1, gridRow:1, display:'flex', alignItems:'flex-start', justifyContent:'flex-start', padding:2, fontSize:fontSize-1, zIndex:2 }}>{BUILDING_ICONS[buildings[3]]||'🏗️'}</div>
+          )}
           <div style={{ gridColumn:1, gridRow:3, display:'flex', alignItems:'flex-end', justifyContent:'flex-start', padding:2, fontSize:fontSize-1, zIndex:2 }}>{BUILDING_ICONS[buildings[0]]||'🏗️'}</div>
           <div style={{ gridColumn:2, gridRow:3, display:'flex', alignItems:'flex-end', justifyContent:'center', padding:2, fontSize:fontSize-1, zIndex:2 }}>{buildings[1]?(BUILDING_ICONS[buildings[1]]||'🏗️'):null}</div>
           <div style={{ gridColumn:3, gridRow:3, display:'flex', alignItems:'flex-end', justifyContent:'flex-end', padding:2, fontSize:fontSize-1, zIndex:2 }}>{buildings[2]?(BUILDING_ICONS[buildings[2]]||'🏗️'):null}</div>

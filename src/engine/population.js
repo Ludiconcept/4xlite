@@ -16,18 +16,20 @@ export const ALL_POP_TYPES = [...FAMINE_ORDER, ...FAMINE_PROTECTED]
 /**
  * Calcule le plafond de population.
  */
-export function calcPopMax(map) {
+export function calcPopMax(map, activeEffects = {}) {
   const playerTiles = map.flat().filter(t => t.owner === 'player')
   const nbTiles = playerTiles.length
   let bonusBatiments = 0
   for (const tile of playerTiles) {
     for (const b of (tile.buildings || [])) {
-      if (b === 'cabane')   bonusBatiments += 3   // +1 général + 2 propre
-      else if (b === 'immeuble') bonusBatiments += 6 // +1 général + 5 propre
-      else bonusBatiments += 1                      // +1 général
+      if (b === 'cabane')   bonusBatiments += 3
+      else if (b === 'immeuble') bonusBatiments += 6
+      else bonusBatiments += 1
     }
   }
-  return nbTiles * POP_PER_TILE + bonusBatiments
+  let base = nbTiles * POP_PER_TILE + bonusBatiments
+  if (activeEffects.ceramique) base += 5   // Céramique : +5 pop max
+  return base
 }
 
 /**
@@ -51,16 +53,16 @@ export function calcPopTotal(population) {
  * Calcule le coût en nourriture de fin de tour (surpopulation).
  * Chaque population excédentaire coûte 1 Nourriture.
  */
-export function calcSurpopulationCost(population, map) {
+export function calcSurpopulationCost(population, map, activeEffects={}) {
   const total  = calcPopTotal(population)
-  const popMax = calcPopMax(map)
+  const popMax = calcPopMax(map, activeEffects)
   const excedent = Math.max(0, total - popMax)
   return Math.ceil(excedent / 5)  // 1 Nourriture nourrit 5 pop excédentaires
 }
 
-export function calcSurpopulationExcedent(population, map) {
+export function calcSurpopulationExcedent(population, map, activeEffects={}) {
   const total  = calcPopTotal(population)
-  const popMax = calcPopMax(map)
+  const popMax = calcPopMax(map, activeEffects)
   return Math.max(0, total - popMax)
 }
 
@@ -70,8 +72,8 @@ export function calcSurpopulationExcedent(population, map) {
  * - Retourne { newResources, famineData } où famineData est null si pas de famine
  *   ou { manque, mortsPossibles } si famine
  */
-export function resoudreSurpopulation(population, resources, map) {
-  const cout = calcSurpopulationCost(population, map)
+export function resoudreSurpopulation(population, resources, map, activeEffects={}) {
+  const cout = calcSurpopulationCost(population, map, activeEffects)
   if (cout === 0) return { newResources: resources, famineData: null }
 
   const nourritureDispo = resources.nourriture || 0
@@ -86,7 +88,7 @@ export function resoudreSurpopulation(population, resources, map) {
   // Surpopulation : nourriture insuffisante
   const nourritureManquante = cout - nourritureDispo
   // Pop nourries = nourritureDispo * 5, pop non nourries = excédent - nourritureDispo*5
-  const excedent = calcSurpopulationExcedent(population, map)
+  const excedent = calcSurpopulationExcedent(population, map, activeEffects)
   const popNourries = nourritureDispo * 5
   const nbMorts = Math.max(0, excedent - popNourries)
   // Populations pouvant mourir (pas Noble ni Prêtre)

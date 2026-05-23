@@ -220,14 +220,15 @@ export function createInitialInnovations() {
     'rendementAgricole','cultureEnTerrasse','cultureEnTerrasse2',
     'prospection1','prospection2','prospection3',
     'drainage','irrigation','extraction',
+    'benedictionDesTroupeaux',
     // Administration
     'ceramique','monnaie','bureaucratie','genieCivil',
     'architectureRoyale','palaisDesMerveilles',
   ]
   for (const id of innovationIds) {
     state[id] = {
-      checked:  0,     // cases cochées jusqu'ici
-      unlocked: false, // innovation entièrement débloquée
+      checkedTypes: { A:0, N:0, P:0 }, // cases cochées par type
+      unlocked: false,
     }
   }
   return state

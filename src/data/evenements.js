@@ -352,7 +352,7 @@ export const EVENEMENTS = [
     texte: 'A) -3 Or [grisé si <3]  B) -1 Prêtre -1 Noble [grisé si l\'un=0]  C) -1 dé prochain tour.',
     type: 'choixJoueur',
     effet: { type: 'mauvaisPresages' },
-    roleplay: false,
+    roleplay: true,
     cat_display: 'Malus',
     choixTexte: `A)Dépenser 3 Or  B)-1 Prêtre et -1 Noble  C)-1 dé prochain tour`,
     resultats: {

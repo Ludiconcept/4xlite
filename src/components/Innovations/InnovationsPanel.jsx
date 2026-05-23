@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useGameStore } from '../../store/gameStore.js'
 import { INNOVATIONS_PAR_ARBRE, INNOVATIONS_MAP, peutCommencerInnovation } from '../../data/innovations.js'
+import { genererCase } from '../../engine/exploration.js'
 import UnlockPopup from './UnlockPopup.jsx'
 
 const ARBRES = [
@@ -23,9 +24,10 @@ const ROW_GAP = 28   // espace vertical entre nœuds dans une colonne
 const PAD     = 24   // padding extérieur
 
 function InnovNode({ innov, innovations, jetons, arbre, onCocher }) {
-  const current = innovations[innov.id] || { checked:0, unlocked:false }
-  const { checked, unlocked } = current
-  const dispo = peutCommencerInnovation(innov.id, innovations) || checked > 0
+  const current = innovations[innov.id] || { checkedTypes:{A:0,N:0,P:0}, unlocked:false }
+  const { checkedTypes = {A:0,N:0,P:0}, unlocked } = current
+  const totalChecked = Object.values(checkedTypes).reduce((a,b)=>a+b,0)
+  const dispo = peutCommencerInnovation(innov.id, innovations) || totalChecked > 0
 
   const cases = []
   for (const [type, count] of Object.entries(innov.cout))
@@ -65,29 +67,33 @@ function InnovNode({ innov, innovations, jetons, arbre, onCocher }) {
           <div style={{ display:'flex', flexWrap:'wrap', gap:3, alignItems:'center' }}>
             {cases.map((type,idx) => {
               const tc = TYPE_COLORS[type]
-              const isChecked = idx < checked
-              const isNext    = idx === checked
-              const canCheck  = isNext && (jetons[type]||0) > 0
+              // Compter combien de cases de ce type ont déjà été cochées
+              const alreadyOfType = checkedTypes[type] || 0
+              // Cette case est cochée si son index dans les cases de ce type est < alreadyOfType
+              const typeIdx = cases.slice(0,idx).filter(t=>t===type).length
+              const isChecked = typeIdx < alreadyOfType
+              const canCheck = !isChecked && !unlocked && (jetons[type]||0) > 0 &&
+                               (innov.cout[type]||0) > alreadyOfType
               return (
                 <button key={idx}
                   onClick={() => canCheck && onCocher(innov.id, type)}
-                  title={`Jeton ${type}${canCheck?'':' — insuffisant'}`}
+                  title={`Jeton ${type}${canCheck?'':isChecked?'— déjà coché':' — insuffisant'}`}
                   style={{
                     width:19, height:19, borderRadius:4,
-                    border:`1.5px solid ${isChecked?tc.border:isNext?tc.border:'#e2e8f0'}`,
-                    background: isChecked?tc.color:isNext?tc.bg:'#f8fafc',
+                    border:`1.5px solid ${isChecked?tc.border:canCheck?tc.border:'#e2e8f0'}`,
+                    background: isChecked?tc.color:canCheck?tc.bg:'#f8fafc',
                     color: isChecked?'white':tc.color,
                     cursor: canCheck?'pointer':'default',
                     fontSize:9, fontWeight:700,
                     display:'flex', alignItems:'center', justifyContent:'center',
-                    opacity: isNext||isChecked ? 1 : 0.35,
+                    opacity: isChecked||canCheck ? 1 : 0.35,
                     flexShrink:0,
                   }}>
                   {isChecked ? '✓' : type}
                 </button>
               )
             })}
-            <span style={{ fontSize:9, color:'#94a3b8', marginLeft:2 }}>{checked}/{innov.total}</span>
+            <span style={{ fontSize:9, color:'#94a3b8', marginLeft:2 }}>{totalChecked}/{innov.total}</span>
           </div>
         ) : !unlocked ? (
           <div style={{ fontSize:9, color:'#94a3b8' }}>
@@ -99,54 +105,67 @@ function InnovNode({ innov, innovations, jetons, arbre, onCocher }) {
   )
 }
 
+// Paires sans flèche (indépendantes placées sur la même rangée)
+const NO_ARROWS = new Set(['extraction->benedictionDesTroupeaux','reseauDefensif->navigation'])
+
 function ArbreView({ arbreId, innovations, jetons, arbre, onCocher }) {
   const list = INNOVATIONS_PAR_ARBRE[arbreId] || []
 
-  // Calculer les niveaux (colonnes) par BFS sur les dépendances
+  // Utiliser layoutCol/layoutRow si disponibles, sinon BFS
+  const hasLayout = list.every(i => i.layoutCol !== undefined)
   const niveaux = {}
-  const getLevel = (id, visited=new Set()) => {
-    if (niveaux[id] !== undefined) return niveaux[id]
-    if (visited.has(id)) return 0
-    visited.add(id)
-    const innov = INNOVATIONS_MAP[id]
-    if (!innov || innov.conditions.length===0) { niveaux[id]=0; return 0 }
-    const max = Math.max(...innov.conditions.map(cid => getLevel(cid, new Set(visited))))
-    niveaux[id] = max+1; return max+1
+  if (!hasLayout) {
+    const getLevel = (id, visited=new Set()) => {
+      if (niveaux[id] !== undefined) return niveaux[id]
+      if (visited.has(id)) return 0
+      visited.add(id)
+      const innov = INNOVATIONS_MAP[id]
+      if (!innov || !innov.conditions.length) { niveaux[id]=0; return 0 }
+      const max = Math.max(...innov.conditions.map(cid => getLevel(cid, new Set(visited))))
+      niveaux[id] = max+1; return max+1
+    }
+    list.forEach(i => getLevel(i.id))
+  } else {
+    list.forEach(i => { niveaux[i.id] = i.layoutCol || 0 })
   }
-  list.forEach(i => getLevel(i.id))
 
   const maxLevel = Math.max(...Object.values(niveaux), 0)
-  const parNiveau = {}
-  for (let n=0; n<=maxLevel; n++) parNiveau[n] = []
-  list.forEach(i => parNiveau[niveaux[i.id]||0].push(i))
 
-  // Positions — centrage vertical par colonne
-  const maxInCol = Math.max(...Object.values(parNiveau).map(a => a.length), 1)
+  // Organiser par colonne et rangée
+  const byCols = {}
+  for (let n=0; n<=maxLevel; n++) byCols[n] = []
+  list.forEach(i => byCols[niveaux[i.id]||0].push(i))
+  // Trier par layoutRow si disponible
+  Object.values(byCols).forEach(col => col.sort((a,b) => (a.layoutRow||0)-(b.layoutRow||0)))
+
+  const maxInCol = Math.max(...Object.values(byCols).map(a => a.length), 1)
   const totalH = maxInCol * NODE_H + (maxInCol-1) * ROW_GAP + PAD*2
   const totalW = (maxLevel+1) * NODE_W + maxLevel * COL_GAP + PAD*2
 
   const pos = {}
   for (let n=0; n<=maxLevel; n++) {
-    const nodes = parNiveau[n]
-    const colH  = nodes.length * NODE_H + (nodes.length-1) * ROW_GAP
+    const nodes = byCols[n] || []
+    const colH = nodes.length * NODE_H + (nodes.length-1) * ROW_GAP
     const startY = PAD + (totalH - PAD*2 - colH) / 2
     nodes.forEach((innov, idx) => {
       const x = PAD + n*(NODE_W+COL_GAP)
       const y = startY + idx*(NODE_H+ROW_GAP)
-      pos[innov.id] = { x, y, cx: x+NODE_W/2, cy: y+NODE_H/2, rx: x+NODE_W, ry: y+NODE_H/2 }
+      pos[innov.id] = { x, y, cx:x+NODE_W/2, cy:y+NODE_H/2, rx:x+NODE_W, ry:y+NODE_H/2 }
     })
   }
 
-  // Flèches
+  // Flèches (en respectant NO_ARROWS)
   const arrows = []
   list.forEach(innov => {
     innov.conditions.forEach(condId => {
+      const key = `${condId}->${innov.id}`
+      if (NO_ARROWS.has(key)) return
       const from = pos[condId], to = pos[innov.id]
       if (!from || !to) return
       const x1=from.rx, y1=from.ry, x2=to.x, y2=to.cy
       const cp1x=x1+(x2-x1)*0.5, cp1y=y1, cp2x=x1+(x2-x1)*0.5, cp2y=y2
       const unlocked = innovations[condId]?.unlocked
-      arrows.push({ d:`M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`, unlocked, key:`${condId}->${innov.id}` })
+      arrows.push({ d:`M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`, unlocked, key })
     })
   })
 
@@ -183,11 +202,100 @@ function ArbreView({ arbreId, innovations, jetons, arbre, onCocher }) {
   )
 }
 
-export function InnovationsPanel({ onClose }) {
+
+const ARBRE_STYLES_INLINE = {
+  administration: { color:'#1e40af', bg:'#eff6ff', border:'#93c5fd' },
+  exploitation:   { color:'#92400e', bg:'#fffbeb', border:'#fcd34d' },
+  guerre:         { color:'#991b1b', bg:'#fef2f2', border:'#fca5a5' },
+  religion:       { color:'#5b21b6', bg:'#faf5ff', border:'#c4b5fd' },
+}
+
+const D6_PROSP_TABLE = { 1:null, 2:null, 3:'argile', 4:'gibier', 5:'fer', 6:'or' }
+const TERRAIN_COMPAT = {
+  or:     ['colline','montagne','desert'],
+  fer:    ['colline','montagne','desert'],
+  argile: ['marais','plaine','desert'],
+  gibier: ['marais','plaine','colline','montagne','fleuve','lac'],
+}
+
+export function ProspectionDicePopup({ innov, tile, game, onDone }) {
+  const S = ARBRE_STYLES_INLINE[innov.arbre] || ARBRE_STYLES_INLINE.exploitation
+  const [phase, setPhase] = useState('rolling') // rolling | result
+  const [displayDie, setDisplayDie] = useState(1)
+  const [finalDie, setFinalDie] = useState(null)
+
+  useEffect(() => {
+    let count = 0
+    const interval = setInterval(() => {
+      setDisplayDie(Math.floor(Math.random()*6)+1)
+      count++
+      if (count >= 15) {
+        clearInterval(interval)
+        const d = Math.floor(Math.random()*6)+1
+        setFinalDie(d)
+        setDisplayDie(d)
+        setPhase('result')
+      }
+    }, 80)
+    return () => clearInterval(interval)
+  }, [])
+
+  const raw = finalDie ? D6_PROSP_TABLE[finalDie] : null
+  const terrain = tile?.terrain || ''
+  const ressource = raw && TERRAIN_COMPAT[raw]?.includes(terrain) ? raw : null
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:1100,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:'white', borderRadius:16, width:'100%', maxWidth:380,
+        padding:'24px 20px', display:'flex', flexDirection:'column', gap:16, alignItems:'center',
+        boxShadow:'0 24px 64px rgba(0,0,0,.4)' }}>
+        <div style={{ fontSize:13, fontWeight:600, color:S.color }}>⛏️ {innov.nom}</div>
+        <div style={{ fontSize:11, color:'#64748b' }}>
+          Case ({(tile?.col||0)+1},{(tile?.row||0)+1}) — {terrain}
+        </div>
+        {/* Dé animé */}
+        <div style={{
+          width:80, height:80, borderRadius:14,
+          background: phase==='rolling' ? '#f8fafc' : S.bg,
+          border:`3px solid ${phase==='rolling' ? '#e2e8f0' : S.border}`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:48, fontWeight:700, color: phase==='rolling' ? '#94a3b8' : S.color,
+          transition:'all .3s',
+        }}>
+          {displayDie}
+        </div>
+        {phase === 'result' && (
+          <>
+            <div style={{ fontSize:14, color:'#374151', textAlign:'center' }}>
+              {ressource
+                ? <><strong style={{ color:S.color, fontSize:16 }}>+{ressource}</strong> découvert !</>
+                : raw
+                  ? <span style={{ color:'#94a3b8' }}>{raw} incompatible avec ce terrain</span>
+                  : <span style={{ color:'#94a3b8' }}>Rien trouvé sur cette case</span>}
+            </div>
+            <button onClick={() => onDone({ row:tile.row, col:tile.col, ressource })}
+              style={{ padding:'11px 24px', borderRadius:10, border:'none',
+                background:S.color, color:'white', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+              Continuer →
+            </button>
+          </>
+        )}
+        {phase === 'rolling' && (
+          <div style={{ fontSize:12, color:'#94a3b8' }}>Prospection en cours…</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function InnovationsPanel({ onClose, onRequestCaseSelect, onProspectionReady }) {
   const game       = useGameStore(s => s.game)
   const updateGame = useGameStore(s => s.updateGame)
   const [onglet, setOnglet]           = useState('administration')
   const [pendingUnlocks, setPendingUnlocks] = useState([])
+  const [pendingMapSelect, setPendingMapSelect] = useState(null) // {innov, type}
+  const [diceResult, setDiceResult] = useState(null) // résultat prospection après sélection
 
   const jetons      = game?.jetons      || { A:0, N:0, P:0 }
   const innovations = game?.innovations || {}
@@ -196,15 +304,20 @@ export function InnovationsPanel({ onClose }) {
   const handleCocher = useCallback((innovId, type) => {
     const innov = INNOVATIONS_MAP[innovId]
     if (!innov) return
-    const current = innovations[innovId] || { checked:0, unlocked:false }
+    const current = innovations[innovId] || { checkedTypes:{A:0,N:0,P:0}, unlocked:false }
     if (current.unlocked) return
     if ((jetons[type]||0) <= 0) return
-    const newChecked = current.checked + 1
-    const willUnlock = newChecked >= innov.total
+    // Vérifier qu'il reste des cases de ce type à cocher
+    const cout = innov.cout[type] || 0
+    const already = current.checkedTypes?.[type] || 0
+    if (already >= cout) return
+    const newCT = { ...(current.checkedTypes||{A:0,N:0,P:0}), [type]: already+1 }
+    const totalChecked = Object.values(newCT).reduce((a,b)=>a+b,0)
+    const willUnlock = totalChecked >= innov.total
     updateGame(g => ({
       ...g,
       jetons: { ...g.jetons, [type]: Math.max(0,(g.jetons?.[type]||0)-1) },
-      innovations: { ...g.innovations, [innovId]: { checked:newChecked, unlocked:willUnlock } },
+      innovations: { ...g.innovations, [innovId]: { checkedTypes:newCT, unlocked:willUnlock } },
     }))
     if (willUnlock) setPendingUnlocks(prev => [...prev, innov])
   }, [innovations, jetons, updateGame])
@@ -237,7 +350,23 @@ export function InnovationsPanel({ onClose }) {
       case 'clerge': if(result?.paid) updateGame(g=>({...g,resources:{...g.resources,or:Math.max(0,(g.resources?.or||0)-3)},population:{...g.population,pretre:(g.population?.pretre||0)+2}})); break
       case 'messianisme': if(result?.empireId) updateGame(g=>{const emp=g.empires?.[result.empireId]||{power:0,maxPower:8};return{...g,empires:{...g.empires,[result.empireId]:{...emp,power:Math.max(0,emp.power-2),maxPower:Math.max(0,emp.maxPower-2)}},population:{...g.population,guerrier:(g.population?.guerrier||0)+2}}}); break
       case 'martyrs': if(result?.nbPretres>0) updateGame(g=>{const nb=result.nbPretres;const ne={...g.empires};for(let i=1;i<=4;i++)if(ne[i])ne[i]={...ne[i],power:Math.max(0,ne[i].power-nb)};return{...g,empires:ne,population:{...g.population,pretre:Math.max(0,(g.population?.pretre||0)-nb)}}}); break
-      case 'conversion': if(result?.row!==undefined) updateGame(g=>{const nm=g.map.map(r=>r.map(t=>({...t})));nm[result.row][result.col]={...nm[result.row][result.col],owner:'player',explored:true};return{...g,map:nm}}); break
+      case 'conversion': if(result?.row!==undefined) updateGame(g=>{
+        const nm=g.map.map(r=>r.map(t=>({...t})))
+        const tile=nm[result.row][result.col]
+        // Générer le terrain si pas encore révélé (comme une conquête)
+        const generated = !tile.terrain ? genererCase(
+          Math.floor(Math.random()*6)+1,
+          [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1],
+          tile.hasFleuve, tile.isLac
+        ) : {}
+        nm[result.row][result.col]={
+          ...tile, owner:'player', explored:true,
+          ...generated,
+          buildings: tile.playerBuildingsPreserved?.length>0 ? tile.playerBuildingsPreserved : (tile.buildings||[]),
+          playerBuildingsPreserved:[],
+        }
+        return{...g,map:nm}
+      }); break
       default: break
     }
   }
@@ -245,7 +374,39 @@ export function InnovationsPanel({ onClose }) {
   function handleUnlockClose(result) {
     setPendingUnlocks(prev => {
       const [current, ...rest] = prev
-      if (current) applyEffect(current.id, result)
+      if (!current) return rest
+      const id = current.id
+      // Conversion et Prospection : déclencher sélection carte après popup info
+      if (id === 'conversion') {
+        const adj = (t, map) => [[-1,0],[1,0],[0,-1],[0,1]].map(([dr,dc]) => map[t.row+dr]?.[t.col+dc]).filter(Boolean)
+        const playerTiles = game?.map?.flat().filter(t => t.owner === 'player') || []
+        const candidates = game?.map?.flat().filter(t =>
+          t.owner && t.owner !== 'player' && !isNaN(t.owner) &&
+          playerTiles.some(pt => adj(pt, game.map).some(n => n.row === t.row && n.col === t.col))
+        ) || []
+        if (candidates.length > 0) {
+          onRequestCaseSelect?.(candidates, (tile) => {
+            applyEffect('conversion', { row: tile.row, col: tile.col })
+            setPendingMapSelect(null)
+          })
+          setPendingMapSelect({ innov: current, type: 'conversion' })
+        } else {
+          applyEffect(id, result)
+        }
+      } else if (['prospection1','prospection2','prospection3'].includes(id)) {
+        const sansRessource = game?.map?.flat().filter(t =>
+          t.owner === 'player' && t.explored && !(t.resource1 && t.resource2)
+        ) || []
+        if (sansRessource.length > 0) {
+          onRequestCaseSelect?.(sansRessource, (tile) => {
+            onProspectionReady?.(current, tile)
+          })
+        } else {
+          applyEffect(id, result)
+        }
+      } else {
+        applyEffect(id, result)
+      }
       return rest
     })
   }
@@ -297,8 +458,10 @@ export function InnovationsPanel({ onClose }) {
       </div>
 
       {pendingUnlocks[0] && (
-        <UnlockPopup innov={pendingUnlocks[0]} game={game} onClose={handleUnlockClose} />
+        <UnlockPopup innov={pendingUnlocks[0]} game={game} onClose={handleUnlockClose} onRequestCaseSelect={null} />
       )}
+
+
     </div>
   )
 }

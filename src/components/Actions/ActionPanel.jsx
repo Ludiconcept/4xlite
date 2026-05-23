@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useGameStore } from '../../store/gameStore.js'
 import { ActionRecolter }   from './ActionRecolter.jsx'
 import { ActionExplorer }   from './ActionExplorer.jsx'
 import { ActionColoniser }  from './ActionColoniser.jsx'
 import { ActionGrandir }    from './ActionGrandir.jsx'
 import { ActionEtudier }   from './ActionEtudier.jsx'
+import { ActionDebug }    from './ActionDebug.jsx' // ⚠️ DEBUG ONLY
 import { ActionConstruire } from './ActionConstruire.jsx'
 import { ActionAttaquer }   from './ActionAttaquer.jsx'
 import { getCasesExplorables, getCasesColonisables } from '../../engine/exploration.js'
@@ -82,9 +83,18 @@ function ActionChoiceDie4({ onSelect, onClose }) {
   )
 }
 
+// Composant intermédiaire pour déclencher onOpenEtudier via useEffect (évite setState-in-render)
+function EtudierTrigger({ onOpenEtudier, onClose }) {
+  useEffect(() => {
+    onOpenEtudier?.()
+    onClose()
+  }, [])
+  return null
+}
+
 export function ActionPanel({
   dieValue, onClose, onMarkUsed,
-  onTileHighlight, onOpenInnovations,
+  onTileHighlight, onOpenInnovations, onOpenEtudier,
   explorerTileClicked,   onExplorerTileHandled,
   coloniserTileClicked,  onColoniserTileHandled,
   constructTileClicked,  onConstructTileHandled,
@@ -147,7 +157,9 @@ export function ActionPanel({
     case 'grandir':
       return <ActionGrandir onClose={handleClose} onMarkUsed={onMarkUsed} />
     case 'etudier':
-      return <ActionEtudier onClose={handleClose} onMarkUsed={onMarkUsed} onOpenInnovations={onOpenInnovations} />
+      return <EtudierTrigger onOpenEtudier={onOpenEtudier} onClose={handleClose} />
+    case 'debug':
+      return <ActionDebug onClose={handleClose} onMarkUsed={onMarkUsed} />
     default:
       return null
   }

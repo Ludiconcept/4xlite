@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { useGameStore } from '../../store/gameStore.js'
 
-const POP_TYPES = [
-  { key:'fermier',  label:'Fermier',  color:'#78716c', role:'Récolte Nourriture et Bois' },
-  { key:'ouvrier',  label:'Ouvrier',  color:'#64748b', role:'Récolte Or, Fer, Argile' },
-  { key:'artisan',  label:'Artisan',  color:'#d97706', role:'Commerce et Innovations' },
-  { key:'guerrier', label:'Guerrier', color:'#dc2626', role:'Attaque, explore, défend' },
-  { key:'pretre',   label:'Prêtre',   color:'#7c3aed', role:'Innovations Religion & Admin.' },
-  { key:'noble',    label:'Noble',    color:'#0369a1', role:'Innovations Guerre & Admin.' },
+const POP_TYPES_BASE = [
+  { key:'fermier',   label:'Fermier',   color:'#78716c', role:'Récolte Nourriture et Bois' },
+  { key:'ouvrier',   label:'Ouvrier',   color:'#64748b', role:'Récolte Or, Fer, Argile' },
+  { key:'artisan',   label:'Artisan',   color:'#d97706', role:'Commerce et Innovations' },
+  { key:'guerrier',  label:'Guerrier',  color:'#dc2626', role:'Attaque, explore, défend' },
 ]
+const POP_TYPES_NAV  = { key:'marin',     label:'Marin',     color:'#0891b2', role:'Combat Fleuve/Lac ×2, autres ×0.5', innovation:'navigation' }
+const POP_TYPES_REST = [
+  { key:'pretre',    label:'Prêtre',    color:'#7c3aed', role:'Innovations Religion & Admin.' },
+  { key:'noble',     label:'Noble',     color:'#0369a1', role:'Innovations Guerre & Admin.' },
+]
+const POP_TYPES_CHEV = { key:'chevalier', label:'Chevalier', color:'#b45309', role:'Combat Plaine/Désert ×2, autres ×1. Meurt en dernier.', innovation:'chevalerie' }
 
 const POP_PER_TILE = 3
 const POP_PER_FARM = 3
@@ -30,7 +34,8 @@ export function PopulationPanel() {
       else bonusBatiments += 1
     }
   }
-  const popMax = playerTiles * POP_PER_TILE + bonusBatiments
+  const ceramique = game?.activeEffects?.ceramique || false
+  const popMax = playerTiles * POP_PER_TILE + bonusBatiments + (ceramique ? 5 : 0)
   const popTotal = Object.values(population).reduce((a, b) => a + b, 0)
   const isOvercrowded = popTotal > popMax && popMax > 0
 
@@ -40,7 +45,7 @@ export function PopulationPanel() {
         Population
       </div>
 
-      {POP_TYPES.map(({ key, label, color, role }) => (
+      {[...POP_TYPES_BASE, ...(game?.activeEffects?.navigation?[POP_TYPES_NAV]:[]), ...POP_TYPES_REST, ...(game?.activeEffects?.chevalerie?[POP_TYPES_CHEV]:[])].map(({ key, label, color, role }) => (
         <div key={key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'2px 0' }}
           title={role}>
           <div style={{ display:'flex', alignItems:'center', gap:5 }}>
@@ -92,6 +97,9 @@ export function PopulationPanel() {
                 <div style={{ fontWeight:500, marginBottom:3 }}>Calcul de la capacité max</div>
                 <div>Cases × 3 = {playerTiles * 3}</div>
                 <div>Bâtiments × 1 (Cabane +3, Immeuble +6) = {bonusBatiments}</div>
+                {ceramique && (
+                  <div style={{ color:'#fcd34d' }}>Céramique = 5</div>
+                )}
                 <div style={{ borderTop:'0.5px solid rgba(255,255,255,.2)', marginTop:4, paddingTop:4, fontWeight:500 }}>
                   Total max : {popMax}
                 </div>

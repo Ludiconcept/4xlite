@@ -14,7 +14,7 @@ const RES_LABELS = { nourriture:'Nourriture', bois:'Bois', argile:'Argile', fer:
 
 function PanelGrandir({ game, onConfirm, onClose }) {
   const [chosen, setChosen] = useState(null)
-  const popMax = calcPopMax(game.map)
+  const popMax = calcPopMax(game.map, game.activeEffects)
   const popTotal = Object.values(game.population).reduce((a,b)=>a+b,0)
   const atCap = popTotal >= popMax
 
@@ -89,8 +89,10 @@ function PanelCommerce({ game, usedThisTurn, onConfirm, onClose }) {
   // Quota Marché = 1×/Marché/tour, indépendant du quota Artisan
   // achatsEffectues = nb d'achats déjà faits ce tour (on ne peut pas le savoir sans tracking séparé)
   // Simplification : on compte les utilisations Marché depuis les turnLimits
+  const monnaieActive = game?.activeEffects?.monnaie || false
+  const marchesMax = nbMarchés * (monnaieActive ? 2 : 1)
   const marchesUtilises = usedThisTurn.commerceMarche || 0
-  const cetteFoisMarche = marchesUtilises < nbMarchés
+  const cetteFoisMarche = marchesUtilises < marchesMax
   const qtéAchat = cetteFoisMarche ? 2 : 1
 
   const totalStocké = Object.values(game.resources).reduce((a,b)=>a+b,0)
@@ -107,8 +109,8 @@ function PanelCommerce({ game, usedThisTurn, onConfirm, onClose }) {
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ fontSize:12, color:'#475569', lineHeight:1.5 }}>
         {restantes} utilisation{restantes>1?'s':''} restante{restantes>1?'s':''} ce tour.
-        {nbMarchés > 0 && marchesUtilises < nbMarchés && (
-          <span style={{ color:'#16a34a' }}> Marché : {nbMarchés - marchesUtilises} achat{nbMarchés-marchesUtilises>1?'s':''} 1Or→2res restant{nbMarchés-marchesUtilises>1?'s':''}.</span>
+        {marchesMax > 0 && marchesUtilises < marchesMax && (
+          <span style={{ color:'#16a34a' }}> Marché : {marchesMax - marchesUtilises} achat{marchesMax-marchesUtilises>1?'s':''} 1Or→2res restant{marchesMax-marchesUtilises>1?'s':''}.</span>
         )}
       </div>
       <div style={{ display:'flex', gap:6 }}>
@@ -207,42 +209,8 @@ function PanelFormer({ game, onConfirm, onClose }) {
   )
 }
 
-function PanelDrainageIrrigation({ actionId, game, onConfirm, onClose }) {
-  const [tileKey, setTile] = useState(null)
-  const type = actionId === 'drainage' ? 'marais' : 'desert'
-  const tiles = game.map.flat().filter(t => t.owner==='player' && t.terrain===type)
-  const TERRAIN_NAMES = { marais:'Marais', desert:'Désert' }
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-      <div style={{ fontSize:12, color:'#475569' }}>
-        Convertit un {TERRAIN_NAMES[type]} en Plaine.
-        {actionId==='drainage' ? ' Perd 1 Ouvrier + 3 Bois.' : ' Perd 1 Fermier + 3 Argile.'}
-      </div>
-      {tiles.length === 0
-        ? <div style={{ fontSize:12, color:'#dc2626' }}>Aucune case {TERRAIN_NAMES[type]} dans votre territoire.</div>
-        : <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-            {tiles.map(t => {
-              const key=`${t.row}-${t.col}`
-              return (
-                <button key={key} onClick={() => setTile(tileKey===key?null:key)} style={{
-                  padding:'7px 9px', borderRadius:8, fontSize:12, textAlign:'left', cursor:'pointer',
-                  border: tileKey===key?'2px solid #16a34a':'1.5px solid #e2e8f0',
-                  background: tileKey===key?'#f0fdf4':'white',
-                }}>
-                  Case ({t.col+1},{t.row+1}) — {TERRAIN_NAMES[type]}
-                </button>
-              )
-            })}
-          </div>
-      }
-      <div style={{ display:'flex', gap:8 }}>
-        <button onClick={onClose} style={{ flex:1, padding:'8px 0', borderRadius:8, border:'1px solid #e2e8f0', background:'white', fontSize:12, cursor:'pointer', color:'#475569' }}>Annuler</button>
-        <button onClick={() => tileKey && onConfirm(actionId,{tileKey})} disabled={!tileKey} style={{ flex:2, padding:'8px 0', borderRadius:8, border:'none', background:tileKey?'#16a34a':'#e2e8f0', color:'white', fontSize:13, fontWeight:500, cursor:tileKey?'pointer':'default' }}>Confirmer</button>
-      </div>
-    </div>
-  )
-}
+// PanelDrainageIrrigation : ouvre la sélection sur carte via onRequestCaseSelect
+// Le composant reçoit onRequestCaseSelect en prop depuis ActionsSpecialesPanel
 
 function PanelMartyrs({ game, onConfirm, onClose }) {
   const [nb, setNb] = useState(1)
@@ -270,7 +238,7 @@ function PanelMartyrs({ game, onConfirm, onClose }) {
 }
 
 // ── Panneau principal ─────────────────────────────────────────
-export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues = [], onEquiper, dicePhase = 'idle' }) {
+export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues = [], onEquiper, dicePhase = 'idle', onHighlightCase, onClearHighlight, onRequestCaseSelect }) {
   const game       = useGameStore(s => s.game)
   const updateGame = useGameStore(s => s.updateGame)
   const addEntry   = useLogStore(s => s.addEntry)
@@ -349,8 +317,55 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
             const action = ACTIONS_SPECIALES[id]
             const { ok, raison } = peutUtiliserAction(id, gameWithDice, usedThisTurn)
             const coutStr = Object.entries(action.cout||{}).map(([r,q])=>`${q} ${RES_LABELS[r]||r}`).join(' + ') || (action.maxParTourParArtisan ? 'Artisan requis' : 'Gratuit')
+            const coutPopStr = action.coutPop ? Object.entries(action.coutPop).map(([t,q])=>`${q} ${POP_LABELS[t]||t}`).join(' + ') : null
             return (
-              <button key={id} onClick={() => ok && setActive(id)} disabled={!ok} style={{
+              <button key={id} onClick={() => {
+                if (!ok) return
+                if (id === 'reseauDefensif') {
+                  const eligibles = game.map.flat().filter(t =>
+                    t.owner==='player' && !t.buildings?.includes('tourDeGuet') && (t.buildings?.length||0)<3
+                  )
+                  if (eligibles.length === 0) { setActive(id); return }
+                  // Consommer les ressources d'abord
+                  handleConfirm(id, {})
+                  // Puis sélections successives (3 tours de guet)
+                  let placed = 0
+                  const placeNext = () => {
+                    if (placed >= 3) return
+                    const remaining = game.map.flat().filter(t =>
+                      t.owner==='player' && !t.buildings?.includes('tourDeGuet') && (t.buildings?.length||0)<3
+                    )
+                    if (remaining.length === 0) return
+                    onRequestCaseSelect?.(remaining, (tile) => {
+                      updateGame(g => {
+                        const nm = g.map.map(r => r.map(t => ({...t})))
+                        nm[tile.row][tile.col] = {...nm[tile.row][tile.col], buildings:[...(nm[tile.row][tile.col].buildings||[]),'tourDeGuet']}
+                        return {...g, map:nm}
+                      })
+                      placed++
+                      if (placed < 3) placeNext()
+                    })
+                  }
+                  placeNext()
+                } else if (id === 'drainage' || id === 'irrigation') {
+                  const type = id === 'drainage' ? 'marais' : 'desert'
+                  const eligibles = game.map.flat().filter(t => t.owner==='player' && t.terrain===type)
+                  if (eligibles.length === 0) { setActive(id); return }
+                  onRequestCaseSelect?.(eligibles, (tile) => {
+                    handleConfirm(id, { tileKey: `${tile.row}-${tile.col}` })
+                  })
+                } else if (id === 'prospection') {
+                  const eligibles = game.map.flat().filter(t =>
+                    t.owner==='player' && t.explored && !t.resource1 && !t.resource2
+                  )
+                  if (eligibles.length === 0) { setActive(id); return }
+                  onRequestCaseSelect?.(eligibles, (tile) => {
+                    handleConfirm(id, { tileKey: `${tile.row}-${tile.col}` })
+                  })
+                } else {
+                  setActive(id)
+                }
+              }} disabled={!ok} style={{
                 display:'flex', alignItems:'flex-start', gap:8, padding:'8px 9px', borderRadius:8,
                 border: ok?'1.5px solid #e2e8f0':'1.5px solid #f1f5f9',
                 background: ok?'white':'#f8fafc', cursor:ok?'pointer':'not-allowed',
@@ -360,7 +375,10 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:12, fontWeight:500, color:ok?'#1e293b':'#94a3b8' }}>{action.name}</div>
                   <div style={{ fontSize:11, color:'#64748b', lineHeight:1.3, marginTop:1 }}>{action.description}</div>
-                  <div style={{ fontSize:10, color:ok?'#16a34a':'#94a3b8', marginTop:2 }}>{coutStr}</div>
+                  <div style={{ fontSize:10, color:ok?'#16a34a':'#94a3b8', marginTop:2 }}>
+                    {coutStr}
+                    {coutPopStr && <span style={{ color:'#dc2626', marginLeft:4 }}>+ {coutPopStr}</span>}
+                  </div>
                   {!ok && raison && <div style={{ fontSize:10, color:'#ef4444', marginTop:1 }}>{raison}</div>}
                 </div>
               </button>
@@ -376,8 +394,24 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
           {activeAction==='recruter'  && <PanelRecruter game={game} onConfirm={handleConfirm} onClose={() => setActive(null)} />}
           {activeAction==='commerce'  && <PanelCommerce game={game} usedThisTurn={usedThisTurn} onConfirm={handleConfirm} onClose={() => setActive(null)} />}
           {activeAction==='former'    && <PanelFormer game={game} onConfirm={handleConfirm} onClose={() => setActive(null)} />}
-          {activeAction==='drainage'  && <PanelDrainageIrrigation actionId="drainage" game={game} onConfirm={handleConfirm} onClose={() => setActive(null)} />}
-          {activeAction==='irrigation'&& <PanelDrainageIrrigation actionId="irrigation" game={game} onConfirm={handleConfirm} onClose={() => setActive(null)} />}
+          {/* Drainage/Irrigation/Prospection : sélection sur carte (setActive pour "aucune case") */}
+          {(activeAction==='drainage'||activeAction==='irrigation') && (() => {
+            const type = activeAction==='drainage' ? 'marais' : 'desert'
+            const nom = activeAction==='drainage' ? 'Marais' : 'Désert'
+            const eligibles = game.map.flat().filter(t => t.owner==='player' && t.terrain===type)
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ fontSize:12, color:'#475569' }}>
+                  Convertit un {nom} en Plaine.{activeAction==='drainage' ? ' Coût : 1 Ouvrier + 3 Bois.' : ' Coût : 1 Fermier + 3 Argile.'}
+                </div>
+                {eligibles.length===0
+                  ? <div style={{ fontSize:12, color:'#dc2626' }}>Aucune case {nom} dans votre territoire.</div>
+                  : <div style={{ fontSize:12, color:'#64748b' }}>Sélectionnez une case sur la carte (surlignée).</div>
+                }
+                <button onClick={() => setActive(null)} style={{ padding:'8px 0', borderRadius:8, border:'1px solid #e2e8f0', background:'white', fontSize:12, cursor:'pointer', color:'#475569' }}>Annuler</button>
+              </div>
+            )
+          })()}
           {activeAction==='martyrs'   && <PanelMartyrs game={game} onConfirm={handleConfirm} onClose={() => setActive(null)} />}
           {activeAction==='armer'     && (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>

@@ -49,7 +49,7 @@ export const BATIMENTS = {
   },
   palais: {
     id: 'palais', name: 'Palais', emoji: '👑',
-    description: '+5 Or par 5 cases (récolte, arrondi inf.). 1 max. Débloque Servage.',
+    description: '+5 Or par 5 cases (récolte, arrondi inf.). 1 max. Débloque Servage. Architecture royale : +5 Pop. max, +5 Stockage max, compte comme Forteresse.',
     terrains: ['marais','plaine','desert','colline','montagne'],
     cout: { ressources: { bois: 5, argile: 5, fer: 5, or: 5 }, population: { pretre: 1, noble: 1 } },
     maxParCase: 1, maxTotal: 1,
@@ -112,7 +112,8 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
 
   // Vérifier case pleine EN PREMIER
   const existing = tile.buildings || []
-  if (existing.length >= 3) {
+  const maxEmplacements = game.activeEffects?.genieCivil ? 4 : 3
+  if (existing.length >= maxEmplacements) {
     // Vérifier si le bâtiment est valide pour cette case SANS le check buildings
     // (canBuildOnTile retourne false si case pleine, donc on vérifie manuellement)
     const tileOk = tile.explored && tile.owner === 'player' && !tile.isLac && tile.terrain !== 'lac'
@@ -133,7 +134,20 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
       if (!popOk) return { ok:false, raison:'Population insuffisante.', casePleine:false }
       if (!maxOk) return { ok:false, raison:'Maximum global atteint.', casePleine:false }
     }
-    return { ok: false, raison: 'Case complète (3 bâtiments max).', casePleine: true }
+    // Vérifier aussi effectiveMax même en case pleine
+    const countSameFull = existing.filter(b => b === batimentId).length
+    let effectiveMaxFull = bat.maxParCase || 1
+    if (batimentId === 'ferme') {
+      const ae = game.activeEffects || {}
+      if (ae.rendementAgricole && tile.terrain === 'plaine') effectiveMaxFull = 2
+      if (ae.cultureEnTerrasse && tile.terrain === 'colline') effectiveMaxFull = 2
+      if (ae.cultureEnTerrasse2 && tile.terrain === 'montagne') effectiveMaxFull = 1
+    }
+    if (batimentId === 'mine' && game.activeEffects?.extraction) effectiveMaxFull = 2
+    if (countSameFull >= effectiveMaxFull) {
+      return { ok: false, raison: `Maximum de ${effectiveMaxFull} ${bat.name}(s) atteint sur cette case.`, casePleine: false }
+    }
+    return { ok: false, raison: `Case complète (${maxEmplacements} bâtiments max).`, casePleine: true }
   }
 
   if (!canBuildOnTile(tile)) {
@@ -141,9 +155,22 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
     return { ok: false, raison: 'Construction impossible.' }
   }
 
-  // Terrain compatible
-  if (!bat.terrains.includes(tile.terrain)) {
+  // Terrain compatible (avec exceptions innovations)
+  let terrainsOk = bat.terrains.includes(tile.terrain)
+  if (!terrainsOk && batimentId === 'ferme' && tile.terrain === 'montagne' && game.activeEffects?.cultureEnTerrasse2) {
+    terrainsOk = true // Culture en terrasse II débloque la montagne
+  }
+  if (!terrainsOk) {
     return { ok: false, raison: `Non constructible sur ce terrain (${tile.terrain}).` }
+  }
+
+  // Ferme montagne (Culture en terrasse II) : 2 Bois + Fer ou Argile
+  if (batimentId === 'ferme' && tile.terrain === 'montagne') {
+    const hasBois2 = (game.resources?.bois || 0) >= 2
+    const hasMat   = (game.resources?.fer || 0) >= 1 || (game.resources?.argile || 0) >= 1
+    if (!hasBois2 || !hasMat) {
+      return { ok: false, raison: 'Ferme montagne : manque 2 Bois + 1 Fer ou Argile.' }
+    }
   }
 
   // Ferme colline : besoin d'une ressource au choix
@@ -170,7 +197,17 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
   // (casePleine déjà vérifié en haut de la fonction)
 
   const countSame = existing.filter(b => b === batimentId).length
-  if (countSame >= (bat.maxParCase || 1)) {
+  // Rendement agricole : 2 fermes sur Plaine / Culture en terrasse : 2 fermes sur Colline
+  let effectiveMax = bat.maxParCase || 1
+  if (batimentId === 'ferme') {
+    const ae = game.activeEffects || {}
+    if (ae.rendementAgricole && tile.terrain === 'plaine') effectiveMax = 2
+    if (ae.cultureEnTerrasse && tile.terrain === 'colline') effectiveMax = 2
+    if (ae.cultureEnTerrasse2 && tile.terrain === 'montagne') effectiveMax = 1 // juste débloque la construction
+  }
+  // Extraction : 2 mines sur même case
+  if (batimentId === 'mine' && game.activeEffects?.extraction) effectiveMax = 2
+  if (countSame >= effectiveMax) {
     return { ok: false, raison: `${bat.name} déjà présent sur cette case.` }
   }
 
