@@ -37,6 +37,24 @@ function AnimDie({ finalValue, rolling, color = '#1e293b' }) {
   )
 }
 
+function UnitRow({ emoji, label, max, value, onChange }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+      <span style={{ flex:1, fontSize:12 }}>{emoji} {label} <span style={{ color:'#94a3b8' }}>({max} dispo.)</span></span>
+      <button onClick={() => onChange(-1)} disabled={value===0}
+        style={{ width:22,height:22,borderRadius:5,border:'1px solid #e2e8f0',background:'white',
+          cursor:value>0?'pointer':'default',fontSize:14,opacity:value===0?0.3:1,
+          display:'flex',alignItems:'center',justifyContent:'center' }}>−</button>
+      <span style={{ width:20,textAlign:'center',fontWeight:600,fontSize:13,
+        color:value>0?'#dc2626':'#94a3b8' }}>{value}</span>
+      <button onClick={() => onChange(1)} disabled={value>=max}
+        style={{ width:22,height:22,borderRadius:5,border:'1px solid #e2e8f0',background:'white',
+          cursor:value<max?'pointer':'default',fontSize:14,opacity:value>=max?0.3:1,
+          display:'flex',alignItems:'center',justifyContent:'center' }}>+</button>
+    </div>
+  )
+}
+
 export function ActionAttaquer({ onClose, onMarkUsed, onBack, attackTileClicked, onAttackTileHandled }) {
   const game       = useGameStore(s => s.game)
   const updateGame = useGameStore(s => s.updateGame)

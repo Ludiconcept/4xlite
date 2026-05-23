@@ -17,7 +17,7 @@ import { genererCase } from './exploration.js'
 // Coefficients de terrain par type d'unité
 export const COEFF_TERRAIN = {
   guerrier: () => 1,
-  marin:    (terrain, hasFleuve) => (hasFleuve || terrain === 'lac') ? 2 : 0.5,
+  marin:    (terrain, hasFleuve) => (hasFleuve || terrain === 'lac') ? 2 : terrain === 'marais' ? 1 : 0.5,
   chevalier:(terrain)            => (terrain === 'plaine' || terrain === 'desert') ? 2 : 1,
   pretre:   ()                   => 1, // Inquisition : vaut 1 guerrier
 }

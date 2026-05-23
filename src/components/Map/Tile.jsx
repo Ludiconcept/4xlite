@@ -32,14 +32,15 @@ const RESOURCE_ICONS_EMOJI = { foret:'🌲', gibier:'🦌' }
 const BUILDING_ICONS = {
   ferme:'🏠', mine:'⛏️', scierie:'🪚', tourDeGuet:'🗼', forteresse:'🏰',
   palais:'👑', marche:'🏪', hopital:'🏥', universite:'🎓', ambassade:'🤝',
-  entrepot:'📦',
-  cabane:'🛖',
-  immeuble:'🏢', palaisMerveillesCorps:'✨', palaisMerveillesGauche:'✨', palaismerveilles_droite:'✨',
+  entrepot:'📦', cabane:'🛖', immeuble:'🏢',
+  palaisCentral:'🏛️', palaisAileGauche:'🏯', palaisAileDroite:'🏯',
 }
 const BUILDING_NAMES = {
   ferme:'Ferme', mine:'Mine', scierie:'Scierie', tourDeGuet:'Tour de guet',
   forteresse:'Forteresse', palais:'Palais', marche:'Marché', hopital:'Hôpital',
-  universite:'Université', ambassade:'Ambassade', entrepot:'Entrepôt',
+  universite:'Université', entrepot:'Entrepôt', cabane:'Cabane', immeuble:'Immeuble',
+  palaisCentral:'Palais — Corps central', palaisAileGauche:'Palais — Aile gauche',
+  palaisAileDroite:'Palais — Aile droite', ambassade:'Ambassade', entrepot:'Entrepôt',
   palaisMerveillesCorps:'Palais des Merveilles — Corps',
   palaisMerveillesGauche:'Palais des Merveilles — Aile gauche',
   palaismerveilles_droite:'Palais des Merveilles — Aile droite',

@@ -64,7 +64,8 @@ export function ActionConstruire({ onClose, onMarkUsed, onTileHighlight, constru
   // Bâtiments pour la case sélectionnée
   const batimentGratuitActif = game?.activeEffects?.batimentGratuit || false
   const batiments = selectedTile ? getBatimentsDisponibles(selectedTile, game) : []
-  const casePleineSelected = (selectedTile?.buildings || []).length >= 3
+  const maxEmplacements = game?.activeEffects?.genieCivil ? 4 : 3
+  const casePleineSelected = (selectedTile?.buildings || []).length >= maxEmplacements
   // Si batimentGratuit actif : les bâtiments bloqués SEULEMENT par ressources deviennent disponibles
   // Bâtiment gratuit : bloques SEULEMENT par ressources → disponibles
   const isResBloque = (b) => !b.disponibilite.ok && b.disponibilite.raison?.includes('insuffisantes')

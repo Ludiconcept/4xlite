@@ -5,9 +5,9 @@ import { useLogStore } from '../../store/logStore.js'
 import { ACTIONS_SPECIALES, peutUtiliserAction } from '../../engine/actionsSpeciales.js'
 import { calcPopMax } from '../../engine/population.js'
 
-const POP_TYPES = ['fermier','ouvrier','artisan','guerrier','pretre','noble']
-const POP_LABELS = { fermier:'Fermier', ouvrier:'Ouvrier', artisan:'Artisan', guerrier:'Guerrier', pretre:'Prêtre', noble:'Noble' }
-const POP_EMOJI  = { fermier:'🧑‍🌾', ouvrier:'👷', artisan:'🛠️', guerrier:'⚔️', pretre:'⛪', noble:'👑' }
+// POP_TYPES défini dynamiquement dans les composants
+const POP_LABELS = { fermier:'Fermier', ouvrier:'Ouvrier', artisan:'Artisan', guerrier:'Guerrier', marin:'Marin', chevalier:'Chevalier', pretre:'Prêtre', noble:'Noble' }
+const POP_EMOJI  = { fermier:'🧑‍🌾', ouvrier:'👷', artisan:'🛠️', guerrier:'⚔️', marin:'⛵', chevalier:'🐴', pretre:'⛪', noble:'👑' }
 const RES_LABELS = { nourriture:'Nourriture', bois:'Bois', argile:'Argile', fer:'Fer', or:'Or' }
 
 // ── Sous-panneaux par action ───────────────────────────────────
@@ -52,8 +52,8 @@ function PanelRecruter({ game, onConfirm, onClose }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ fontSize:12, color:'#475569' }}>Coût : 3 Or. Choisissez le type à recruter :</div>
-      <div style={{ display:'flex', gap:8 }}>
-        {['guerrier','artisan'].map(type => (
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+        {['guerrier','artisan', ...(game?.activeEffects?.navigation?['marin']:[])].map(type => (
           <button key={type} onClick={() => setChosen(type)} style={{
             flex:1, padding:'10px 0', borderRadius:8, textAlign:'center',
             border: chosen===type?'2px solid #dc2626':'1.5px solid #e2e8f0',
@@ -179,7 +179,12 @@ function PanelCommerce({ game, usedThisTurn, onConfirm, onClose }) {
 function PanelFormer({ game, onConfirm, onClose }) {
   const [from, setFrom] = useState(null)
   const [to, setTo]     = useState(null)
-  const available = POP_TYPES.filter(t => (game.population[t]||0) > 0)
+  const ae = game?.activeEffects||{}
+  const allTypes = ['fermier','ouvrier','artisan','guerrier',
+    ...(ae.navigation?['marin']:[]),
+    ...(ae.chevalerie?['chevalier']:[]),
+    'pretre','noble']
+  const available = allTypes.filter(t => (game.population[t]||0) > 0)
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
       <div style={{ fontSize:12, color:'#475569' }}>Coût : 1 Or. Changez 1 population en un autre type.</div>
@@ -194,7 +199,7 @@ function PanelFormer({ game, onConfirm, onClose }) {
       {from && <>
         <div style={{ fontSize:11, color:'#94a3b8' }}>En :</div>
         <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-          {POP_TYPES.filter(t=>t!==from).map(t => (
+          {allTypes.filter(t=>t!==from).map(t => (
             <button key={t} onClick={() => setTo(to===t?null:t)} style={{ padding:'5px 8px', borderRadius:6, fontSize:11, cursor:'pointer', border:to===t?'2px solid #7c3aed':'1px solid #e2e8f0', background:to===t?'#f5f3ff':'white', color:to===t?'#7c3aed':'#374151' }}>
               {POP_EMOJI[t]} {POP_LABELS[t]}
             </button>
@@ -322,31 +327,43 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
               <button key={id} onClick={() => {
                 if (!ok) return
                 if (id === 'reseauDefensif') {
-                  const eligibles = game.map.flat().filter(t =>
-                    t.owner==='player' && !t.buildings?.includes('tourDeGuet') && (t.buildings?.length||0)<3
+                  // Vérifier les ressources
+                  if ((game.resources?.bois||0) < 5) { setActive(id); return }
+                  // Calculer les cases éligibles : joueur, pas lac, pas tour existante, emplacement libre
+                  const getEligibles = (g) => g.map.flat().filter(t =>
+                    t.owner==='player' && !t.isLac && t.terrain !== 'lac'
+                    && !(t.buildings||[]).includes('tourDeGuet')
+                    && (t.buildings||[]).length < (g.activeEffects?.genieCivil ? 4 : 3)
                   )
+                  const eligibles = getEligibles(game)
                   if (eligibles.length === 0) { setActive(id); return }
-                  // Consommer les ressources d'abord
-                  handleConfirm(id, {})
-                  // Puis sélections successives (3 tours de guet)
-                  let placed = 0
-                  const placeNext = () => {
-                    if (placed >= 3) return
-                    const remaining = game.map.flat().filter(t =>
-                      t.owner==='player' && !t.buildings?.includes('tourDeGuet') && (t.buildings?.length||0)<3
+                  // Placer 3 tours en séquence — chaque sélection relit le Zustand frais
+                  const placeSequence = (remaining) => {
+                    if (remaining <= 0) {
+                      // Déduire les 5 Bois après les 3 placements
+                      updateGame(g => ({
+                        ...g,
+                        resources: { ...g.resources, bois: Math.max(0,(g.resources.bois||0)-5) },
+                        activeEffects: { ...g.activeEffects, reseauDefensifUsed: true },
+                      }))
+                      return
+                    }
+                    onRequestCaseSelect?.(
+                      getEligibles(useGameStore.getState().game),
+                      (tile) => {
+                        updateGame(g => {
+                          const nm = g.map.map(r => r.map(t => ({...t})))
+                          nm[tile.row][tile.col] = {
+                            ...nm[tile.row][tile.col],
+                            buildings: [...(nm[tile.row][tile.col].buildings||[]), 'tourDeGuet']
+                          }
+                          return {...g, map: nm}
+                        })
+                        placeSequence(remaining - 1)
+                      }
                     )
-                    if (remaining.length === 0) return
-                    onRequestCaseSelect?.(remaining, (tile) => {
-                      updateGame(g => {
-                        const nm = g.map.map(r => r.map(t => ({...t})))
-                        nm[tile.row][tile.col] = {...nm[tile.row][tile.col], buildings:[...(nm[tile.row][tile.col].buildings||[]),'tourDeGuet']}
-                        return {...g, map:nm}
-                      })
-                      placed++
-                      if (placed < 3) placeNext()
-                    })
                   }
-                  placeNext()
+                  placeSequence(3)
                 } else if (id === 'drainage' || id === 'irrigation') {
                   const type = id === 'drainage' ? 'marais' : 'desert'
                   const eligibles = game.map.flat().filter(t => t.owner==='player' && t.terrain===type)
@@ -412,6 +429,33 @@ export function ActionsSpecialesPanel({ onClose, diceRolled = false, diceValues 
               </div>
             )
           })()}
+          {activeAction==='adouber' && (() => {
+            const nbCases     = game.map?.flat().filter(t=>t.owner==='player').length||0
+            const nbChevaliers= game.population?.chevalier||0
+            const canAdouber  = nbChevaliers < nbCases
+                             && (game.population?.guerrier||0) >= 1
+                             && (game.resources?.fer||0) >= 1
+                             && (game.resources?.or||0)  >= 1
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ fontSize:12, color:'#475569' }}>
+                  Convertit 1 Guerrier en Chevalier. Coût : 1 Fer + 1 Or.
+                </div>
+                <div style={{ fontSize:11, color:'#94a3b8' }}>
+                  Chevaliers : {nbChevaliers}/{nbCases} (max 1 par case)
+                </div>
+                {!canAdouber && <div style={{ fontSize:11, color:'#dc2626' }}>Conditions non remplies.</div>}
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={() => setActive(null)} style={{ flex:1,padding:'8px 0',borderRadius:8,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer',color:'#475569' }}>Annuler</button>
+                  <button onClick={() => canAdouber && handleConfirm('adouber',{})} disabled={!canAdouber}
+                    style={{ flex:2,padding:'8px 0',borderRadius:8,border:'none',background:canAdouber?'#b45309':'#e2e8f0',color:'white',fontSize:13,fontWeight:500,cursor:canAdouber?'pointer':'default' }}>
+                    🐴 Adouber
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
+
           {activeAction==='martyrs'   && <PanelMartyrs game={game} onConfirm={handleConfirm} onClose={() => setActive(null)} />}
           {activeAction==='armer'     && (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>

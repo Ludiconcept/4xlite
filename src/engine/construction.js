@@ -42,9 +42,11 @@ export const BATIMENTS = {
   },
   forteresse: {
     id: 'forteresse', name: 'Forteresse', emoji: '🏰',
-    description: '+5 guerriers défensifs. -2 pertes si victoire en défense.',
+    description: '+5 Défense (+6 avec Stratégie défensive). Stratégie défensive : coût réduit (-1 Bois, -1 Argile).',
+    descriptionSD: '+6 Défense. Coût réduit : 2 Bois, 4 Argile, 2 Fer, 2 Guerriers.',
     terrains: ['marais','plaine','desert','colline','montagne'],
-    cout: { ressources: { bois: 3, argile: 5, fer: 2 }, population: { guerrier: 2 } },
+    cout:   { ressources: { bois: 3, argile: 5, fer: 2 }, population: { guerrier: 2 } },
+    coutSD: { ressources: { bois: 2, argile: 4, fer: 2 }, population: { guerrier: 2 } },
     maxParCase: 1,
   },
   palais: {
@@ -53,6 +55,33 @@ export const BATIMENTS = {
     terrains: ['marais','plaine','desert','colline','montagne'],
     cout: { ressources: { bois: 5, argile: 5, fer: 5, or: 5 }, population: { pretre: 1, noble: 1 } },
     maxParCase: 1, maxTotal: 1,
+  },
+  palaisCentral: {
+    id: 'palaisCentral', name: 'Palais — Corps central', emoji: '🏛️',
+    description: "Dés d'action plafonnés à 3 (sauf dés fixes Étudier/Génie civil). Nécessite le Palais.",
+    terrains: ['marais','plaine','desert','colline','montagne'],
+    cout: { ressources: { bois: 3, or: 3 }, population: { noble: 1 } },
+    maxParCase: 1, maxTotal: 1,
+    requiresBuilding: 'palais',
+    requiresInnovation: 'palaisDesMerveilles',
+  },
+  palaisAileGauche: {
+    id: 'palaisAileGauche', name: 'Palais — Aile gauche', emoji: '🏯',
+    description: "Débloque l'action Anoblir (Guerrier/Artisan/Prêtre → Noble). Nécessite Corps central.",
+    terrains: ['marais','plaine','desert','colline','montagne'],
+    cout: { ressources: { bois: 2, argile: 2 }, population: { noble: 1 } },
+    maxParCase: 1, maxTotal: 1,
+    requiresBuilding: 'palaisCentral',
+    requiresInnovation: 'palaisDesMerveilles',
+  },
+  palaisAileDroite: {
+    id: 'palaisAileDroite', name: 'Palais — Aile droite', emoji: '🏯',
+    description: '+2 Or par tour (récolte). Nécessite Corps central.',
+    terrains: ['marais','plaine','desert','colline','montagne'],
+    cout: { ressources: { bois: 2, or: 2 }, population: { noble: 1 } },
+    maxParCase: 1, maxTotal: 1,
+    requiresBuilding: 'palaisCentral',
+    requiresInnovation: 'palaisDesMerveilles',
   },
   marche: {
     id: 'marche', name: 'Marché', emoji: '🏪',
@@ -121,7 +150,9 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
     const resOk = bat.requiresResource
       ? [tile.resource1?.type, tile.resource2?.type].filter(Boolean).some(r => bat.requiresResource.includes(r))
       : true
-    const coutRes = bat.cout.ressources || {}
+    const coutEffPl = (batimentId==='forteresse' && game.activeEffects?.strategieDefensive && bat.coutSD)
+      ? bat.coutSD : bat.cout
+    const coutRes = coutEffPl.ressources || {}
     const resourcesOk = Object.entries(coutRes).every(([r,q]) => (game.resources[r]||0) >= q)
       || (bat.altCout ? Object.entries(bat.altCout).every(([r,q]) => (game.resources[r]||0) >= q) : false)
     const popOk = Object.entries(bat.cout.population || {}).every(([t,q]) => (game.population[t]||0) >= q)
@@ -153,6 +184,18 @@ export function peutConstruire(batimentId, tile, game, collineMat = null) {
   if (!canBuildOnTile(tile)) {
     if (tile.isLac || tile.terrain === 'lac') return { ok: false, raison: 'Construction impossible sur un Lac.' }
     return { ok: false, raison: 'Construction impossible.' }
+  }
+
+  // Bâtiment requis sur la même case (Palais des Merveilles)
+  if (bat.requiresBuilding) {
+    if (!(tile.buildings||[]).includes(bat.requiresBuilding))
+      return { ok: false, raison: `Nécessite "${bat.requiresBuilding}" sur cette case.` }
+  }
+
+  // Innovation requise
+  if (bat.requiresInnovation) {
+    if (!game.innovations?.[bat.requiresInnovation]?.unlocked)
+      return { ok: false, raison: `Nécessite l'innovation ${bat.requiresInnovation}.` }
   }
 
   // Terrain compatible (avec exceptions innovations)
@@ -287,8 +330,18 @@ export function appliquerConstruction(batimentId, tileKey, game, opts = {}) {
 }
 
 export function getBatimentsDisponibles(tile, game) {
-  return Object.values(BATIMENTS).map(bat => ({
-    ...bat,
-    disponibilite: peutConstruire(bat.id, tile, game),
-  }))
+  return Object.values(BATIMENTS).map(bat => {
+    const ae = game.activeEffects || {}
+    // Description dynamique selon innovations
+    let desc = bat.description
+    if (bat.id === 'forteresse' && ae.strategieDefensive && bat.descriptionSD) desc = bat.descriptionSD
+    // Coût dynamique selon innovations
+    const cout = (bat.id === 'forteresse' && ae.strategieDefensive && bat.coutSD) ? bat.coutSD : bat.cout
+    return {
+      ...bat,
+      description: desc,
+      cout,
+      disponibilite: peutConstruire(bat.id, tile, game),
+    }
+  })
 }

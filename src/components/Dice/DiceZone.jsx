@@ -104,6 +104,11 @@ export function DiceZone({
   const allUsed       = confirmedActions.length > 0 && nbRemaining === 0
 
   function handleRoll() {
+    // Génie civil : ajouter un dé fixe 3 AVANT le lancer
+    if (genieCivilDe) {
+      onActionsConfirmed?.([...confirmedActions, { dieIndex: 98, value: 3, genieCivilDe: true }])
+      updateGame(g => ({ ...g, nextTurnEffects: { ...g.nextTurnEffects, genieCivilDe: false } }))
+    }
     const nb = servageActif ? 3 : 2
     setMaxSelect(nb)
     rollDice(4)
@@ -123,11 +128,7 @@ export function DiceZone({
       actions = [...actions, { dieIndex: 99, value: 5, etudierGratuit: true }]
       updateGame(g => ({ ...g, activeEffects: { ...g.activeEffects, etudierGratuit: false } }))
     }
-    // genieCivilDe : ajouter un dé fixe 3 aux actions (au tour du déblocage seulement)
-    if (genieCivilDe) {
-      actions = [...actions, { dieIndex: 98, value: 3, genieCivilDe: true }]
-      updateGame(g => ({ ...g, nextTurnEffects: { ...g.nextTurnEffects, genieCivilDe: false } }))
-    }
+    // genieCivilDe géré dans handleRoll
     const newTurn = (game?.turn || 0) + 1
     setTurnNumber(newTurn)
     updateGame(g => ({ ...g, turn: newTurn }))

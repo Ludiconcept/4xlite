@@ -148,7 +148,7 @@ export function GameScreen() {
     // Lire le state frais pour éviter les stale closures
     const freshGame = useGameStore.getState().game
     const { newResources, famineData: fd } = resoudreSurpopulation(freshGame.population, freshGame.resources, freshGame.map, freshGame.activeEffects)
-    const newStorageMax = calcStorageMax(freshGame.map)
+    const newStorageMax = calcStorageMax(freshGame.map, freshGame.activeEffects)
     if (fd) {
       updateGame(g => ({ ...g, resources: newResources, storageMax: newStorageMax }))
       setFamineData(fd)

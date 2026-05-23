@@ -28,18 +28,27 @@ export function calcPopMax(map, activeEffects = {}) {
     }
   }
   let base = nbTiles * POP_PER_TILE + bonusBatiments
-  if (activeEffects.ceramique) base += 5   // Céramique : +5 pop max
+  if (activeEffects.ceramique)          base += 5  // Céramique : +5 pop max
+  if (activeEffects.architectureRoyale) {           // Architecture royale : +5 si Palais construit
+    const hasPalais = (map||[]).flat().some(t => t.owner==='player' && t.buildings?.includes('palais'))
+    if (hasPalais) base += 5
+  }
   return base
 }
 
 /**
  * Calcule le stockage max actuel.
  */
-export function calcStorageMax(map) {
+export function calcStorageMax(map, activeEffects = {}) {
   const entrepots = map.flat()
     .filter(t => t.owner === 'player')
     .reduce((s, t) => s + (t.buildings?.filter(b => b === 'entrepot').length || 0), 0)
-  return STORAGE_BASE + entrepots * STORAGE_PER_ENTREPOT
+  let base = STORAGE_BASE + entrepots * STORAGE_PER_ENTREPOT
+  if (activeEffects.architectureRoyale) {
+    const hasPalais = map.flat().some(t => t.owner==='player' && t.buildings?.includes('palais'))
+    if (hasPalais) base += 5
+  }
+  return base
 }
 
 /**

@@ -2,14 +2,18 @@ import { useState } from 'react'
 import { useGameStore } from '../../store/gameStore.js'
 import { useLogStore } from '../../store/logStore.js'
 
-const POP_TYPES = [
+const POP_TYPES_BASE = [
   { key:'fermier',  label:'Fermier',  emoji:'🧑‍🌾', role:'Récolte Nourriture et Bois' },
   { key:'ouvrier',  label:'Ouvrier',  emoji:'👷',   role:'Récolte Or, Fer, Argile' },
   { key:'artisan',  label:'Artisan',  emoji:'🛠️',   role:'Commerce et Innovations' },
   { key:'guerrier', label:'Guerrier', emoji:'⚔️',   role:'Attaque, explore, défend' },
+]
+const POP_TYPES_EXTRA = [
   { key:'pretre',   label:'Prêtre',   emoji:'⛪',   role:'Innovations Religion & Admin.' },
   { key:'noble',    label:'Noble',    emoji:'👑',   role:'Innovations Guerre & Admin.' },
 ]
+const POP_TYPE_MARIN     = { key:'marin',     label:'Marin',     emoji:'⛵', role:'Combat Lac/Fleuve ×2, Marais ×1' }
+const POP_TYPE_CHEVALIER = { key:'chevalier', label:'Chevalier', emoji:'🐴', role:'Combat Plaine/Désert ×2, autres ×1' }
 
 export function ActionGrandir({ onClose, onMarkUsed }) {
   const game       = useGameStore(s => s.game)
@@ -51,7 +55,11 @@ export function ActionGrandir({ onClose, onMarkUsed }) {
       </p>
 
       <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-        {POP_TYPES.map(({ key, label, emoji, role }) => (
+        {[...POP_TYPES_BASE,
+          ...(game?.activeEffects?.navigation  ? [POP_TYPE_MARIN]     : []),
+          ...(game?.activeEffects?.chevalerie  ? [POP_TYPE_CHEVALIER] : []),
+          ...POP_TYPES_EXTRA,
+        ].map(({ key, label, emoji, role }) => (
           <button key={key} onClick={() => setChosen(chosen === key ? null : key)} style={{
             display:'flex', alignItems:'center', gap:10, padding:'8px 10px',
             borderRadius:8, border: chosen === key ? '2px solid #be185d' : '1.5px solid #e2e8f0',
